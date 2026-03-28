@@ -15,7 +15,7 @@ class UserManager:
         """Ensure the credentials file exists."""
         if not os.path.exists(self.credentials_file):
             # Create default admin user
-            self.create_user("admin", "password", "admin", save_now=True)
+            self.create_user("admin", "admin", "admin", save_now=True)
 
     def hash_password(self, password, salt=None):
         """Hash a password using pbkdf2_hmac."""

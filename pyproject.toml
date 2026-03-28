@@ -5,11 +5,9 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "flet>=0.83.0",
     "tkcalendar>=1.6.1",
 ]
-
-[project.scripts]
-ayl-pos = "src.main:run"
 
 [tool.setuptools]
 packages = ["src", "src.core", "src.gui", "src.legacy"]
