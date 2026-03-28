@@ -14,16 +14,16 @@ uv sync
 
 ### Ejecución
 
-Para iniciar el sistema actual (basado en Tkinter):
+Para iniciar el sistema:
 
 ```bash
-uv run src/legacy/login.py
+uv run python3 -m src.main
 ```
 
 ### Credenciales por Defecto
 
 - **Usuario:** `admin`
-- **Contraseña:** `password`
+- **Contraseña:** `admin`
 
 **Nota:** Cambie la contraseña después del primer inicio de sesión.
 
@@ -60,22 +60,29 @@ Para otras dependencias, consulte la sección de **Instalación de Dependencias*
 ## Estructura de Archivos
 
 ```text
-AYL-POS/
-├── pyproject.toml / uv.lock
-├── README.md
-└── src/
-    ├── main.py             # Punto de entrada futuro
-    ├── core/               # Lógica de negocio e independiente
-    │   ├── thermal_printer.py
-    │   └── 99-thermal-printer.rules
-    ├── gui/                # Desarrollo de nueva interfaz (Qt)
-    └── legacy/             # Código original en Tkinter (Referencia)
-        ├── login.py
-        ├── pos_gui.py
-        ├── products_gui.py
-        ├── reports_gui.py
-        ├── settings_gui.py
-        └── install.sh
+data
+├── flujo_caja.csv
+├── .credentials # importante no perderlo
+├── productos.csv
+└── ventas.csv
+src
+├── core
+│   ├── auth.py
+│   ├── config.py
+│   ├── inventory.py
+│   ├── sales.py
+│   ├── settings.py
+│   └── thermal_printer.py
+├── gui
+│   ├── about_view.py
+│   ├── inventory_view.py
+│   ├── login.py
+│   ├── pos_view.py
+│   ├── reports_view.py
+│   ├── settings_view.py
+│   └── theme.py
+├── main.py
+└── Pos.png
 ```
 
 ## Gestión de Usuarios (Solo Administrador)
@@ -129,34 +136,6 @@ Formato: `marca_tiempo,codigo_barras,nombre,cantidad,precio_unitario,precio_tota
 ### flujo_caja.csv
 Formato: `marca_tiempo,tipo,monto,concepto`
 
-## Solución de Problemas
-
-### Python no encontrado
-```bash
-# Ubuntu/Debian
-sudo apt install python3 python3-tk
-
-# Fedora
-sudo dnf install python3 python3-tkinter
-
-# Arch
-sudo pacman -S python tk
-```
-
-### Error de permisos
-```bash
-chmod +x login.py
-```
-
-### tkinter no disponible
-```bash
-# Ubuntu/Debian
-sudo apt install python3-tk
-
-# Fedora
-sudo dnf install python3-tkinter
-```
-
 ## Notas
 
 - Los archivos CSV utilizan formato UTF-8
@@ -181,5 +160,5 @@ Este proyecto está bajo la Licencia MIT. Para más detalles, vea el archivo [LI
 
 ---
 
-**Versión:** 1.0.0  
-**Última Actualización:** Febrero 2026
+**Versión:** 2.0.0  
+**Última Actualización:** Marzo 2026
