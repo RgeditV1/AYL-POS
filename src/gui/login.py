@@ -33,6 +33,13 @@ class LoginSystem(ft.Container):
             height=50,
             style=ft.ButtonStyle(
                 shape=ft.RoundedRectangleBorder(radius=10),
+                color=ft.Colors.WHITE,
+                bgcolor={
+                    ft.ControlState.HOVERED: ft.Colors.BLUE_ACCENT_700,
+                    ft.ControlState.DEFAULT: ft.Colors.BLUE,
+                    ft.ControlState.FOCUSED: ft.Colors.BLUE_ACCENT_700,
+                    ft.ControlState.DISABLED: ft.Colors.BLUE_ACCENT_700,
+                }
             ),
             on_click=self.handle_login
         )
