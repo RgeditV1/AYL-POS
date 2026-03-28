@@ -18,8 +18,9 @@ from src.gui.theme import ThemeManager
 
 class AYL_Application:
     def __init__(self, page: ft.Page):
+        icon_path = os.path.join(project_root, "Pos.png")
         self.page = page
-        self.page.window.icon = "Pos.png"
+        self.page.window.icon = icon_path
         self.page.title = "Punto de Venta A&L"
         self.page.theme = ThemeManager.get_dark_theme()
         self.page.theme_mode = ft.ThemeMode.DARK
