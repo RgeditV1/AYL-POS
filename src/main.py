@@ -18,7 +18,7 @@ from src.gui.theme import ThemeManager
 
 class AYL_Application:
     def __init__(self, page: ft.Page):
-        icon_path = os.path.join(project_root, "Pos.png")
+        icon_path = os.path.join(project_root, "logo.png")
         self.page = page
         self.page.window.icon = icon_path
         self.page.title = "Punto de Venta A&L"

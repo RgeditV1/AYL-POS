@@ -7,10 +7,13 @@ PROJECT_ROOT = os.path.dirname(SRC_DIR)
 
 # Data directory in root
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+BACKUP_DIR = os.path.join(PROJECT_ROOT, "backups")
 
 # Ensure data directory exists
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR, exist_ok=True)
+if not os.path.exists(BACKUP_DIR):
+    os.makedirs(BACKUP_DIR, exist_ok=True)
 
 # File Paths
 PRODUCTS_CSV = os.path.join(DATA_DIR, "productos.csv")

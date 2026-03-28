@@ -3,7 +3,8 @@ import zipfile
 import flet as ft
 from src.core.settings import SettingsManager
 from src.core.auth import UserManager
-from src.core.config import DATA_DIR, PRODUCTS_CSV, SALES_CSV, CASH_FLOW_CSV, SETTINGS_JSON
+from src.core.config import (DATA_DIR, BACKUP_DIR, PRODUCTS_CSV,
+                            SALES_CSV, CASH_FLOW_CSV, SETTINGS_JSON)
 
 
 class SettingsView(ft.Container):
@@ -611,7 +612,7 @@ class SettingsView(ft.Container):
 
     def _export_data(self, e=None):
         files_to_export = [PRODUCTS_CSV, SALES_CSV, CASH_FLOW_CSV, SETTINGS_JSON]
-        export_path = os.path.join(DATA_DIR, "backup_ayl_pos.zip")
+        export_path = os.path.join(BACKUP_DIR, "backup_data_pos.zip")
         try:
             with zipfile.ZipFile(export_path, "w") as zipf:
                 for fpath in files_to_export:

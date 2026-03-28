@@ -1,4 +1,4 @@
-# Xun-POS - Sistema de Punto de Venta
+# A&L - Sistema de Punto de Venta
 
 Sistema de Punto de Venta rápido y ligero.
 
@@ -156,9 +156,9 @@ Para problemas o preguntas, consulte el código fuente o contacte al administrad
 
 ## Licencia
 
-Este proyecto está bajo la Licencia MIT. Para más detalles, vea el archivo [LICENSE](LICENSE).
+Este proyecto está bajo la Licencia MIT y Licencia Privada. Para más detalles, vea el archivo [LICENSE](LICENSE).
 
 ---
 
-**Versión:** 2.0.0  
+**Versión:** 2.1.0  
 **Última Actualización:** Marzo 2026
