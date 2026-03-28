@@ -140,22 +140,22 @@ class ReportsView(ft.Container):
         )
 
     def _build_controls_bar(self):
-        today_btn = ft.OutlinedButton(
+        self.today_btn = ft.OutlinedButton(
             content=ft.Text("Hoy", size=13),
             on_click=lambda e: self._set_quick_range("today"),
             style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
         )
-        yesterday_btn = ft.OutlinedButton(
+        self.yesterday_btn = ft.OutlinedButton(
             content=ft.Text("Ayer", size=13),
             on_click=lambda e: self._set_quick_range("yesterday"),
             style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
         )
-        week_btn = ft.OutlinedButton(
+        self.week_btn = ft.OutlinedButton(
             content=ft.Text("Esta semana", size=13),
             on_click=lambda e: self._set_quick_range("week"),
             style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
         )
-        month_btn = ft.OutlinedButton(
+        self.month_btn = ft.OutlinedButton(
             content=ft.Text("Este mes", size=13),
             on_click=lambda e: self._set_quick_range("month"),
             style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
@@ -194,10 +194,10 @@ class ReportsView(ft.Container):
                         ft.Text("→", size=16),
                         self.end_picker,
                         ft.VerticalDivider(width=12),
-                        today_btn,
-                        yesterday_btn,
-                        week_btn,
-                        month_btn,
+                        self.today_btn,
+                        self.yesterday_btn,
+                        self.week_btn,
+                        self.month_btn,
                         ft.VerticalDivider(width=12),
                         refresh_btn,
                         export_btn,
@@ -319,6 +319,21 @@ class ReportsView(ft.Container):
         self._load_data()
 
     # ──────────────────────────────────────────────
+    # Quick Buttons State
+    # ──────────────────────────────────────────────
+
+    def _update_quick_buttons_state(self):
+        today = date.today()
+        self.today_btn.style.bgcolor = ft.Colors.BLUE_ACCENT_200 if self.start_date == today and self.end_date == today else None
+        self.yesterday_btn.style.bgcolor = ft.Colors.BLUE_ACCENT_200 if self.start_date == today - timedelta(days=1) and self.end_date == today - timedelta(days=1) else None
+        self.week_btn.style.bgcolor = ft.Colors.BLUE_ACCENT_200 if self.start_date == today - timedelta(days=today.weekday()) and self.end_date == today else None
+        self.month_btn.style.bgcolor = ft.Colors.BLUE_ACCENT_200 if self.start_date == today.replace(day=1) and self.end_date == today else None
+        self.today_btn.update()
+        self.yesterday_btn.update()
+        self.week_btn.update()
+        self.month_btn.update()
+    
+    # ──────────────────────────────────────────────
     # Date Handling
     # ──────────────────────────────────────────────
 
@@ -345,6 +360,7 @@ class ReportsView(ft.Container):
             self.end_picker.update()
         except Exception:
             pass
+        self._update_quick_buttons_state()
         self._load_data()
 
     def _on_date_change(self, e):
