@@ -6,16 +6,18 @@ Sistema de Punto de Venta rápido y ligero.
 
 ### Instalación de Dependencias
 
-Antes de ejecutar el programa, instale las dependencias necesarias:
+Este proyecto utiliza [uv](https://github.com/astral-sh/uv) para la gestión de dependencias. Para instalar todo lo necesario:
 
 ```bash
-pip install -r requirements.txt
+uv sync
 ```
 
 ### Ejecutar el Programa
 
+Para iniciar el sistema:
+
 ```bash
-python3 login.py
+uv run login.py
 ```
 
 ### Credenciales por Defecto
@@ -28,7 +30,8 @@ python3 login.py
 ## Requisitos
 
 - **Sistema Operativo:** Linux (Ubuntu, Debian, Fedora, Arch, etc.)
-- **Python:** 3.7 o superior
+- **Python:** 3.11 o superior (gestionado preferiblemente por `uv`)
+- **Herramienta:** [uv](https://github.com/astral-sh/uv) instalada
 
 Para otras dependencias, consulte la sección de **Instalación de Dependencias**.
 
