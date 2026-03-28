@@ -18,7 +18,7 @@ class InventoryManager:
                 os.makedirs(os.path.dirname(self.products_file), exist_ok=True)
                 with open(self.products_file, "w", newline="", encoding="utf-8") as f:
                     writer = csv.writer(f)
-                    writer.writerow(["codigo", "nombre", "precio", "inventario"])
+                    writer.writerow(["codigo", "nombre", "precio", "cantidad", "costo"])
             except Exception as e:
                 print(f"Error creando archivo de productos: {e}")
 
@@ -37,7 +37,8 @@ class InventoryManager:
                             "codigo": row.get("codigo", "").strip().lstrip("0") or "0",
                             "nombre": row.get("nombre", "").strip(),
                             "precio": row.get("precio", "0.0"),
-                            "inventario": row.get("inventario", "0")
+                            "cantidad": row.get("cantidad", "0"),
+                            "costo": row.get("costo", "0.0")
                         }
                         products.append(product)
                 finally:
@@ -52,14 +53,15 @@ class InventoryManager:
             with open(self.products_file, "w", newline="", encoding="utf-8") as f:
                 fcntl.flock(f, fcntl.LOCK_EX)
                 try:
-                    writer = csv.DictWriter(f, fieldnames=["codigo", "nombre", "precio", "inventario"])
+                    writer = csv.DictWriter(f, fieldnames=["codigo", "nombre", "precio", "cantidad", "costo"])
                     writer.writeheader()
                     for p in products:
                         writer.writerow({
-                            "codigo": p["codigo"],
-                            "nombre": p["nombre"],
-                            "precio": p["precio"],
-                            "inventario": p["inventario"]
+                            "codigo":   p["codigo"],
+                            "nombre":   p["nombre"],
+                            "precio":   p["precio"],
+                            "cantidad": p["cantidad"],
+                            "costo":    p["costo"]
                         })
                 finally:
                     fcntl.flock(f, fcntl.LOCK_UN)

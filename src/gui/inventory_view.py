@@ -52,14 +52,20 @@ class InventoryView(ft.Container):
             keyboard_type=ft.KeyboardType.NUMBER,
         )
         self.f_stock = ft.TextField(
-            label="Inventario",
+            label="Cantidad",
+            border_radius=8,
+            expand=True,
+            keyboard_type=ft.KeyboardType.NUMBER,
+        )
+        self.f_cost = ft.TextField(
+            label="Costo",
             border_radius=8,
             expand=True,
             keyboard_type=ft.KeyboardType.NUMBER,
         )
 
         # Table header
-        self._col_widths = [110, None, 80, 80, 80]  # code, name(expand), price, stock, actions
+        self._col_widths = [110, None, 80, 80, 80, 80]  # code, name(expand), price, stock, cost, actions
 
         # Table rows column
         self.rows_column = ft.Column(
@@ -187,7 +193,7 @@ class InventoryView(ft.Container):
                     ft.Text("Agregar nuevo producto", size=14, weight=ft.FontWeight.BOLD,
                             color=ft.Colors.PRIMARY),
                     ft.Row(
-                        [self.f_code, self.f_name, self.f_price, self.f_stock, add_btn, clear_btn],
+                        [self.f_code, self.f_name, self.f_price, self.f_stock, self.f_cost, add_btn, clear_btn],
                         spacing=10,
                     ),
                 ],
@@ -205,7 +211,8 @@ class InventoryView(ft.Container):
                     self._header_cell("Código", "codigo", width=110),
                     self._header_cell("Nombre", "nombre"),
                     self._header_cell("Precio", "precio", width=90),
-                    self._header_cell("Inventario", "inventario", width=100),
+                    self._header_cell("Cantidad", "cantidad", width=100),
+                    self._header_cell("Costo", "costo", width=100),
                     ft.Container(width=110),  # actions column
                 ],
                 spacing=4,
@@ -294,8 +301,10 @@ class InventoryView(ft.Container):
                     ft.Text(p["nombre"], size=13, expand=True, overflow=ft.TextOverflow.ELLIPSIS),
                     ft.Text(f"${float(p.get('precio', 0)):.2f}", size=13, width=90,
                             text_align=ft.TextAlign.RIGHT),
-                    ft.Text(str(p.get("inventario", 0)), size=13, width=100,
+                    ft.Text(str(p.get("cantidad", 0)), size=13, width=100,
                             text_align=ft.TextAlign.CENTER),
+                    ft.Text(f"${float(p.get('costo', 0)):.2f}", size=13, width=90,
+                            text_align=ft.TextAlign.RIGHT),
                     ft.Row(
                         [
                             ft.IconButton(
@@ -337,7 +346,7 @@ class InventoryView(ft.Container):
                 p for p in self.all_products
                 if query in p["nombre"].lower() or query in p["codigo"].lower()
                 or query in str(p.get("precio", "")).lower()
-                or query in str(p.get("inventario", "")).lower()
+                or query in str(p.get("cantidad", "")).lower()
             ]
         self._render_rows()
         self.status_text.value = f"{len(self.filtered_products)} de {len(self.all_products)} productos."
@@ -355,7 +364,7 @@ class InventoryView(ft.Container):
 
         def sort_key(p):
             val = p.get(col, "")
-            if col in ("precio", "inventario", "codigo"):
+            if col in ("precio", "cantidad", "codigo"):
                 try:
                     return float(val)
                 except (ValueError, TypeError):
@@ -374,6 +383,7 @@ class InventoryView(ft.Container):
         name = self.f_name.value.strip()
         price_str = self.f_price.value.strip()
         stock_str = self.f_stock.value.strip() or "0"
+        cost_str = self.f_cost.value.strip() or "0"
 
         # Validation
         if not code or not name or not price_str:
@@ -382,14 +392,15 @@ class InventoryView(ft.Container):
         try:
             float(price_str)
             int(stock_str)
+            float(cost_str)
         except ValueError:
-            self._show_snack("Precio e inventario deben ser números.", error=True)
+            self._show_snack("Precio, cantidad y costo deben ser números.", error=True)
             return
         if any(p["codigo"] == code for p in self.all_products):
             self._show_snack(f"El código '{code}' ya existe.", error=True)
             return
 
-        new_p = {"codigo": code, "nombre": name, "precio": price_str, "inventario": stock_str}
+        new_p = {"codigo": code, "nombre": name, "precio": price_str, "cantidad": stock_str, "costo": cost_str}
         self.all_products.append(new_p)
         self.filtered_products = list(self.all_products)
         self._unsaved = True
@@ -406,11 +417,13 @@ class InventoryView(ft.Container):
         self.f_name.value = ""
         self.f_price.value = ""
         self.f_stock.value = ""
+        self.f_cost.value = ""
         try:
             self.f_code.update()
             self.f_name.update()
             self.f_price.update()
             self.f_stock.update()
+            self.f_cost.update()
         except Exception:
             pass
 
@@ -427,7 +440,11 @@ class InventoryView(ft.Container):
             border_radius=8, keyboard_type=ft.KeyboardType.NUMBER,
         )
         e_stock = ft.TextField(
-            label="Inventario", value=str(p.get("inventario", "0")),
+            label="Cantidad", value=str(p.get("cantidad", "0")),
+            border_radius=8, keyboard_type=ft.KeyboardType.NUMBER,
+        )
+        e_cost = ft.TextField(
+            label="Costo", value=str(p.get("costo", "0")),
             border_radius=8, keyboard_type=ft.KeyboardType.NUMBER,
         )
 
@@ -435,7 +452,7 @@ class InventoryView(ft.Container):
             modal=True,
             title=ft.Text(f"Editar: {p['nombre']}", size=16, weight=ft.FontWeight.BOLD),
             content=ft.Column(
-                [e_code, e_name, e_price, e_stock],
+                [e_code, e_name, e_price, e_stock, e_cost],
                 tight=True,
                 spacing=12,
                 width=320,
@@ -449,7 +466,7 @@ class InventoryView(ft.Container):
                     content=ft.Text("Guardar"),
                     on_click=lambda e: self._save_edit(
                         dialog, row_idx, p,
-                        e_code.value, e_name.value, e_price.value, e_stock.value,
+                        e_code.value, e_name.value, e_price.value, e_stock.value, e_cost.value,
                     ),
                     style=ft.ButtonStyle(
                         bgcolor=ft.Colors.PRIMARY,
@@ -464,12 +481,13 @@ class InventoryView(ft.Container):
         dialog.open = True
         self.page.update()
 
-    def _save_edit(self, dialog, row_idx, original, code, name, price_str, stock_str):
+    def _save_edit(self, dialog, row_idx, original, code, name, price_str, stock_str, cost_str):
         """Validate and apply an edit."""
         code = code.strip().lstrip("0") or "0"
         name = name.strip()
         price_str = price_str.strip()
         stock_str = stock_str.strip() or "0"
+        cost_str = cost_str.strip() or "0"
 
         if not code or not name or not price_str:
             self._show_snack("Todos los campos son requeridos.", error=True)
@@ -477,8 +495,9 @@ class InventoryView(ft.Container):
         try:
             float(price_str)
             int(stock_str)
+            float(cost_str)
         except ValueError:
-            self._show_snack("Precio e inventario deben ser números.", error=True)
+            self._show_snack("Precio, cantidad y costo deben ser números.", error=True)
             return
         # Check code uniqueness (excluding current)
         if code != original["codigo"] and any(p["codigo"] == code for p in self.all_products):
@@ -491,7 +510,8 @@ class InventoryView(ft.Container):
                 p["codigo"] = code
                 p["nombre"] = name
                 p["precio"] = price_str
-                p["inventario"] = stock_str
+                p["cantidad"] = stock_str
+                p["costo"] = cost_str
                 break
 
         self._unsaved = True

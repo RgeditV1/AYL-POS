@@ -28,4 +28,4 @@ class ThemeManager:
 
     @staticmethod
     def get_light_theme():
-        return ft.Theme(color_scheme_seed=ft.colors.BLUE)
+        return ft.Theme(color_scheme_seed=ft.Colors.BLUE)
