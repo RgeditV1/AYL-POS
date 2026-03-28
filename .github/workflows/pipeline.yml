@@ -1,0 +1,68 @@
+name: A&L POS Multi-Distro CI
+
+on:
+  push:
+    branches: [ "main", "dev" ]
+  pull_request:
+    branches: [ "main", "dev" ]
+
+jobs:
+  test:
+    name: Run on ${{ matrix.distro }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [ubuntu, archlinux]
+        include:
+          - distro: ubuntu
+            container: "ubuntu:latest"
+          - distro: archlinux
+            container: "archlinux:latest"
+
+    container:
+      image: ${{ matrix.container }}
+
+    steps:
+      - name: Install System Dependencies (Arch)
+        if: matrix.distro == 'archlinux'
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm python python-pip git base-devel
+
+      - name: Install System Dependencies (Ubuntu)
+        if: matrix.distro == 'ubuntu'
+        run: |
+          apt-get update
+          apt-get install -y python3 python3-pip git curl
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Verify uv installation
+        run: uv --version
+
+      - name: Sync Dependencies with uv
+        run: |
+          # Instala dependencias según pyproject.toml y uv.lock
+          uv sync --all-extras --dev
+
+      - name: Verify Project Structure
+        run: |
+          test -d src/core || exit 1
+          test -d src/gui || exit 1
+          test -f data/productos.csv || echo "Warning: productos.csv missing"
+
+      - name: Syntax & Import Check
+        run: |
+          export PYTHONPATH=$PYTHONPATH:$(pwd)
+          uv run python3 -c "from src.core import auth, inventory; print('Core modules: OK')"
+          uv run python3 -c "import src.main; print('Main entry: OK')"
+
+      - name: Lockfile Integrity
+        run: uv lock --check
