@@ -1,5 +1,5 @@
 __pycache__/
 *.pyc
-*.csv
 .venv
 .python-version
+data/*.csv

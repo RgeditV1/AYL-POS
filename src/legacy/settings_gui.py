@@ -27,8 +27,11 @@ class SettingsApp(tk.Tk):
         self.is_fullscreen = False  # Track fullscreen state
         
         # Base directory for absolute paths
-        self.base_dir = os.path.dirname(os.path.abspath(__file__))
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(os.path.dirname(current_dir))
+        self.base_dir = os.path.join(project_root, "data")
         self.settings_file = os.path.join(self.base_dir, "settings.json")
+        os.makedirs(self.base_dir, exist_ok=True)
 
         self.create_styles()
         self.create_widgets()

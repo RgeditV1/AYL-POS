@@ -61,8 +61,16 @@ if platform.system() == "Windows":
 class UserManager:
     """Manages user authentication and authorization with secure hashing."""
 
-    def __init__(self, credentials_file=".credentials"):
-        self.credentials_file = credentials_file
+    def __init__(self, credentials_file=None):
+        if credentials_file is None:
+            # Point to root/data/.credentials
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(os.path.dirname(current_dir))
+            credentials_dir = os.path.join(project_root, "data")
+            os.makedirs(credentials_dir, exist_ok=True)
+            self.credentials_file = os.path.join(credentials_dir, ".credentials")
+        else:
+            self.credentials_file = credentials_file
         self.ensure_credentials_file()
 
     def ensure_credentials_file(self):
@@ -208,6 +216,8 @@ class LoginSystem:
         self.user_manager = UserManager()
         self.current_user = None
         self.current_role = None
+        # Track legacy directory for running sub-apps
+        self.legacy_dir = os.path.dirname(os.path.abspath(__file__))
 
     def clear_screen(self):
         """Clear the terminal screen."""
@@ -413,18 +423,29 @@ class LoginSystem:
 
     def run_python_app(self, script_name):
         """Run a Python GUI application."""
-        if not os.path.exists(script_name):
-            print(f"\n{Colors.RED}Error: {script_name} no encontrado.{Colors.RESET}")
+        # Look for the script in the legacy directory
+        full_path = os.path.join(self.legacy_dir, script_name)
+        
+        if not os.path.exists(full_path):
+            print(f"\n{Colors.RED}Error: {full_path} no encontrado.{Colors.RESET}")
             input(f"\n{Colors.YELLOW}Presione Enter para continuar...{Colors.RESET}")
             return
 
         try:
             print(f"\n{Colors.CYAN}Iniciando {script_name}...{Colors.RESET}")
+            # Ensure the project root is in PYTHONPATH so sub-processes can import from src
+            env = os.environ.copy()
+            project_root = os.path.dirname(os.path.dirname(self.legacy_dir))
+            if 'PYTHONPATH' in env:
+                env['PYTHONPATH'] = f"{project_root}:{env['PYTHONPATH']}"
+            else:
+                env['PYTHONPATH'] = project_root
+
             # Pass user role to pos_gui.py for role-based access control
             if script_name == "pos_gui.py" and self.current_role:
-                subprocess.run([sys.executable, script_name, self.current_role])
+                subprocess.run([sys.executable, full_path, self.current_role], env=env)
             else:
-                subprocess.run([sys.executable, script_name])
+                subprocess.run([sys.executable, full_path], env=env)
         except Exception as e:
             print(f"\n{Colors.RED}Error ejecutando {script_name}: {e}{Colors.RESET}")
             input(f"\n{Colors.YELLOW}Presione Enter para continuar...{Colors.RESET}")

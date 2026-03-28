@@ -13,9 +13,12 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from tkinter import messagebox, ttk
 try:
-    from thermal_printer import ThermalPrinter
+    from src.core.thermal_printer import ThermalPrinter
 except ImportError:
-    ThermalPrinter = None
+    try:
+        from thermal_printer import ThermalPrinter
+    except ImportError:
+        ThermalPrinter = None
 
 # Prevent execution on Windows OS
 if platform.system() == "Windows":
@@ -49,7 +52,10 @@ class ReportsApp(tk.Tk):
         self.is_fullscreen = False  # Track fullscreen state
         
         # Base directory for absolute paths
-        self.base_dir = os.path.dirname(os.path.abspath(__file__))
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(os.path.dirname(current_dir))
+        self.base_dir = os.path.join(project_root, "data")
+        os.makedirs(self.base_dir, exist_ok=True)
 
         self.settings = self.load_settings()
         self.create_styles()

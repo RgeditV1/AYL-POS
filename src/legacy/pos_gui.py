@@ -14,9 +14,12 @@ from pathlib import Path
 from tkinter import messagebox, ttk
 
 try:
-    from thermal_printer import ThermalPrinter
+    from src.core.thermal_printer import ThermalPrinter
 except ImportError:
-    ThermalPrinter = None
+    try:
+        from thermal_printer import ThermalPrinter
+    except ImportError:
+        ThermalPrinter = None
 
 # Prevent execution on Windows OS
 if platform.system() == "Windows":
@@ -39,8 +42,14 @@ class POS_GUI(tk.Tk):
         self.user_role = user_role  # Store user role for access control
         self.is_fullscreen = False  # Track fullscreen state
         
-        # Base directory for absolute paths
-        self.base_dir = os.path.dirname(os.path.abspath(__file__))
+        # Base directory for absolute paths - Now pointing to root/data
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(os.path.dirname(current_dir))
+        self.base_dir = os.path.join(project_root, "data")
+        
+        # Ensure data directory exists
+        if not os.path.exists(self.base_dir):
+            os.makedirs(self.base_dir, exist_ok=True)
 
         self.settings = self.load_settings()
         self.products = self.load_products()

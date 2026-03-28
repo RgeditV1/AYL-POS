@@ -33,7 +33,10 @@ class ProductsApp(tk.Tk):
         self.is_fullscreen = False
         
         # Base directory for absolute paths
-        self.base_dir = os.path.dirname(os.path.abspath(__file__))
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(os.path.dirname(current_dir))
+        self.base_dir = os.path.join(project_root, "data")
+        os.makedirs(self.base_dir, exist_ok=True)
 
         # Data Management
         self.all_products = []  # List of dictionaries: {'codigo':, 'nombre':, 'precio':, 'inventario':}

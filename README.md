@@ -12,12 +12,12 @@ Este proyecto utiliza [uv](https://github.com/astral-sh/uv) para la gestión de 
 uv sync
 ```
 
-### Ejecutar el Programa
+### Ejecución
 
-Para iniciar el sistema:
+Para iniciar el sistema actual (basado en Tkinter):
 
 ```bash
-uv run login.py
+uv run src/legacy/login.py
 ```
 
 ### Credenciales por Defecto
@@ -59,19 +59,23 @@ Para otras dependencias, consulte la sección de **Instalación de Dependencias*
 
 ## Estructura de Archivos
 
-```
-Xun-POS/
-├── login.py           # Sistema de autenticación
-├── pos_gui.py         # Punto de Venta
-├── products_gui.py    # Gestión de productos
-├── reports_gui.py     # Reportes
-├── settings_gui.py    # Configuración
-├── productos.csv      # Base de datos de productos
-├── ventas.csv         # Registro de ventas
-├── flujo_caja.csv     # Registros de flujo de caja
-├── .credentials       # Usuarios y contraseñas
-├── settings.json      # Configuración del establecimiento
-└── install.sh         # Script de instalación
+```text
+AYL-POS/
+├── pyproject.toml / uv.lock
+├── README.md
+└── src/
+    ├── main.py             # Punto de entrada futuro
+    ├── core/               # Lógica de negocio e independiente
+    │   ├── thermal_printer.py
+    │   └── 99-thermal-printer.rules
+    ├── gui/                # Desarrollo de nueva interfaz (Qt)
+    └── legacy/             # Código original en Tkinter (Referencia)
+        ├── login.py
+        ├── pos_gui.py
+        ├── products_gui.py
+        ├── reports_gui.py
+        ├── settings_gui.py
+        └── install.sh
 ```
 
 ## Gestión de Usuarios (Solo Administrador)
