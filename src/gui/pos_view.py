@@ -9,7 +9,8 @@ from src.core.settings import SettingsManager
 class POSView(ft.Container):
     """Main POS View. Reimplementation of legacy pos_gui.py in Flet."""
 
-    def __init__(self, username: str, role: str, on_logout=None, on_open_reports=None, on_open_inventory=None):
+    def __init__(self, username: str, role: str, on_logout=None, on_open_reports=None,
+                 on_open_inventory=None, on_open_settings=None):
         super().__init__()
         self.expand = True
         self.username = username
@@ -17,6 +18,7 @@ class POSView(ft.Container):
         self.on_logout = on_logout
         self.on_open_reports = on_open_reports
         self.on_open_inventory = on_open_inventory
+        self.on_open_settings = on_open_settings
 
         # Core managers
         self.inventory_manager = InventoryManager()
@@ -808,7 +810,10 @@ class POSView(ft.Container):
             self._show_snack("Módulo de Inventario no disponible.")
 
     def _open_settings(self, e=None):
-        self._show_snack("Módulo de Ajustes (próximamente).")
+        if self.on_open_settings:
+            self.on_open_settings(self.username, self.role)
+        else:
+            self._show_snack("Módulo de Ajustes no disponible.")
 
     def _open_reports(self, e=None):
         if self.on_open_reports:

@@ -12,6 +12,7 @@ from src.gui.login import LoginSystem
 from src.gui.pos_view import POSView
 from src.gui.reports_view import ReportsView
 from src.gui.inventory_view import InventoryView
+from src.gui.settings_view import SettingsView
 from src.gui.theme import ThemeManager
 
 
@@ -71,6 +72,7 @@ class AYL_Application:
             on_logout=self._handle_logout,
             on_open_reports=self._show_reports if role == "admin" else None,
             on_open_inventory=self._show_inventory if role == "admin" else None,
+            on_open_settings=self._show_settings if role == "admin" else None,
         )
         self.page.add(pos)
         self.page.update()
@@ -95,6 +97,17 @@ class AYL_Application:
             on_back=lambda: self._load_pos_view(username, role),
         )
         self.page.add(inventory)
+        self.page.update()
+
+    def _show_settings(self, username: str, role: str):
+        """Switch from POS → Settings view."""
+        self.page.controls.clear()
+        settings = SettingsView(
+            username=username,
+            role=role,
+            on_back=lambda: self._load_pos_view(username, role),
+        )
+        self.page.add(settings)
         self.page.update()
 
     def _return_to_pos(self, username: str, role: str):
