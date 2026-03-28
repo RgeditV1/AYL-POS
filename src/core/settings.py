@@ -10,7 +10,7 @@ class SettingsManager:
         self.default_settings = {
             "business_name": "Mi Tienda",
             "address": "Calle Principal 123",
-            "phone": "555-0199",
+            "phone": "+18094429999",
             "cashier_name": "Cajero",
             "logo_path": ""
         }

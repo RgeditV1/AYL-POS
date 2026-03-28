@@ -47,14 +47,14 @@ class UserManager:
         except Exception:
             return False
 
-    def create_user(self, username, password, role="cashier", save_now=True):
+    def create_user(self, username, password, role="cajero", save_now=True):
         """Create a new user with hashed password."""
         users = self.load_users()
         if username in users:
             return False, "El usuario ya existe."
             
-        if role not in ["admin", "cashier"]:
-            return False, "Rol inválido. Debe ser 'admin' o 'cashier'."
+        if role not in ["admin", "cajero"]:
+            return False, "Rol inválido. Debe ser 'admin' o 'cajero'."
 
         hashed = self.hash_password(password)
         users[username] = {"password": hashed, "role": role}

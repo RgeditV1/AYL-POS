@@ -60,9 +60,9 @@ class SettingsView(ft.Container):
             label="Rol",
             options=[
                 ft.dropdown.Option(key="admin", text="Administrador"),
-                ft.dropdown.Option(key="cashier", text="Cajero"),
+                ft.dropdown.Option(key="cajero", text="Cajero"),
             ],
-            value="cashier",
+            value="cajero",
             border_radius=8,
             width=180,
         )
@@ -322,7 +322,7 @@ class SettingsView(ft.Container):
             )
         else:
             for i, (uname, data) in enumerate(users.items()):
-                role = data.get("role", "cashier")
+                role = data.get("role", "cajero")
                 is_you = uname == self.username
                 bg = "#1E293B" if i % 2 == 0 else "#172032"
 
@@ -404,7 +404,7 @@ class SettingsView(ft.Container):
     def _add_user(self, e=None):
         uname = self.f_new_username.value.strip()
         pwd = self.f_new_password.value.strip()
-        role = self.f_new_role.value or "cashier"
+        role = self.f_new_role.value or "cajero"
 
         if not uname or not pwd:
             self._show_snack("Usuario y contraseña son requeridos.", error=True)
@@ -416,7 +416,7 @@ class SettingsView(ft.Container):
         if success:
             self.f_new_username.value = ""
             self.f_new_password.value = ""
-            self.f_new_role.value = "cashier"
+            self.f_new_role.value = "cajero"
             try:
                 self.f_new_username.update()
                 self.f_new_password.update()
