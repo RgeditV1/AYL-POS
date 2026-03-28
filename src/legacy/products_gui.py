@@ -1,17 +1,9 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Product Management System
-A POS application for Unix-based systems
-"""
-
-import csv
-import fcntl
 import os
 import platform
 import sys
 import tkinter as tk
 from tkinter import messagebox, ttk
+from src.core.inventory import InventoryManager
 
 # Prevent execution on Windows OS
 if platform.system() == "Windows":
@@ -39,7 +31,8 @@ class ProductsApp(tk.Tk):
         os.makedirs(self.base_dir, exist_ok=True)
 
         # Data Management
-        self.all_products = []  # List of dictionaries: {'codigo':, 'nombre':, 'precio':, 'inventario':}
+        self.inventory_manager = InventoryManager()
+        self.all_products = [] 
         self.current_sort_col = None
         self.current_sort_reverse = False
 
@@ -148,7 +141,7 @@ class ProductsApp(tk.Tk):
         ttk.Label(search_frame, text="Buscar:", font=("Arial", 12, "bold")).pack(side=tk.LEFT, padx=(0, 5))
         
         self.search_var = tk.StringVar()
-        self.search_var.trace("w", self.filter_products)
+        self.search_var.trace_add("write", lambda *args: self.filter_products())
         search_entry = ttk.Entry(search_frame, textvariable=self.search_var, width=40)
         search_entry.pack(side=tk.LEFT, padx=5)
 
@@ -290,38 +283,8 @@ class ProductsApp(tk.Tk):
         ).grid(row=0, column=3, padx=5, sticky="ew")
 
     def load_data_into_memory(self):
-        """Read CSV and store in self.all_products."""
-        filepath = os.path.join(self.base_dir, "productos.csv")
-        self.all_products = []
-        
-        if not os.path.exists(filepath):
-            # Create if not exists
-            try:
-                with open(filepath, "w", newline="", encoding="utf-8") as f:
-                    writer = csv.writer(f)
-                    writer.writerow(["codigo", "nombre", "precio", "inventario"])
-            except Exception as e:
-                messagebox.showerror("Error", f"No se pudo crear el archivo: {e}")
-            return
-
-        try:
-            with open(filepath, mode="r", encoding="utf-8") as infile:
-                reader = csv.reader(infile)
-                header = next(reader, None)
-                if header != ["codigo", "nombre", "precio", "inventario"]:
-                    messagebox.showerror("Error de Formato", "Archivo CSV tiene encabezado incorrecto.")
-                    return
-
-                for row in reader:
-                    if len(row) >= 4:
-                        self.all_products.append({
-                            "codigo": row[0].strip().lstrip("0") or "0",
-                            "nombre": row[1],
-                            "precio": row[2],
-                            "inventario": row[3]
-                        })
-        except Exception as e:
-            messagebox.showerror("Error de Carga", f"No se pudo leer archivo: {e}")
+        """Read products using InventoryManager."""
+        self.all_products = self.inventory_manager.load_products()
 
     def populate_treeview(self, products):
         """Populate the treeview with the given list of products."""
@@ -542,39 +505,15 @@ class ProductsApp(tk.Tk):
     def save_to_csv(self):
         if not messagebox.askyesno(
             "Confirmar Guardar",
-            "¿Desea guardar todos los cambios en productos.csv?\nEsto sobrescribirá el archivo.",
+            "¿Desea guardar todos los cambios?\nEsto sobrescribirá el archivo de productos.",
         ):
             return
 
-        try:
-            filepath = os.path.join(self.base_dir, "productos.csv")
-            # Prepare rows
-            rows = []
-            for p in self.all_products:
-                rows.append([p['codigo'], p['nombre'], p['precio'], p['inventario']])
-
-            # Write with lock
-            # Ensure file exists first
-            if not os.path.exists(filepath):
-                 with open(filepath, "w", newline="", encoding="utf-8") as f:
-                     writer = csv.writer(f)
-                     writer.writerow(["codigo", "nombre", "precio", "inventario"])
-            
-            with open(filepath, "r+", newline="", encoding="utf-8") as f:
-                fcntl.flock(f, fcntl.LOCK_EX)
-                try:
-                    f.seek(0)
-                    f.truncate()
-                    writer = csv.writer(f)
-                    writer.writerow(["codigo", "nombre", "precio", "inventario"])
-                    writer.writerows(rows)
-                finally:
-                    fcntl.flock(f, fcntl.LOCK_UN)
-            
-            messagebox.showinfo("Éxito", "Cambios guardados exitosamente en productos.csv.")
-            
-        except Exception as e:
-            messagebox.showerror("Error Guardando", f"Ocurrió un error: {e}")
+        success, message = self.inventory_manager.save_products(self.all_products)
+        if success:
+            messagebox.showinfo("Éxito", "Cambios guardados exitosamente.")
+        else:
+            messagebox.showerror("Error Guardando", message)
 
     def clear_form(self):
         self.barcode_entry.delete(0, tk.END)

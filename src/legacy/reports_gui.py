@@ -1,17 +1,15 @@
-#!/usr/bin/env python3
-import base64
 import csv
 import fcntl
-import json
 import os
 import platform
 import sys
 import tempfile
-import tkinter as tk
 import webbrowser
+import tkinter as tk
 from datetime import date, datetime, timedelta
-from pathlib import Path
 from tkinter import messagebox, ttk
+from src.core.sales import SalesManager
+from src.core.settings import SettingsManager
 try:
     from src.core.thermal_printer import ThermalPrinter
 except ImportError:
@@ -57,48 +55,19 @@ class ReportsApp(tk.Tk):
         self.base_dir = os.path.join(project_root, "data")
         os.makedirs(self.base_dir, exist_ok=True)
 
-        self.settings = self.load_settings()
+        # Initialize Core Managers
+        self.sales_manager = SalesManager()
+        self.settings_manager = SettingsManager()
+        
+        self.settings = self.settings_manager.load_settings()
         self.create_styles()
-        self.init_sales_log()
         self.create_widgets()
         self.load_report_for_date()
 
         # Bind F11 for fullscreen toggle
         self.bind("<F11>", self.toggle_fullscreen)
 
-    def load_settings(self):
-        """Load settings from JSON file with default fallback."""
-        default_settings = {
-            "business_name": "Mi Negocio",
-            "address": "Calle Principal 123",
-            "phone": "555-0123",
-            "cashier_name": "Cajero",
-        }
-        try:
-            settings_path = os.path.join(self.base_dir, "settings.json")
-            with open(settings_path, "r", encoding="utf-8") as f:
-                loaded = json.load(f)
-                default_settings.update(loaded)  # Merge with defaults
-                return default_settings
-        except (FileNotFoundError, json.JSONDecodeError):
-            return default_settings
-
-    def init_sales_log(self):
-        # Ensure ventas.csv exists with headers if not present
-        filepath = os.path.join(self.base_dir, "ventas.csv")
-        if not os.path.exists(filepath):
-            with open(filepath, "w", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                writer.writerow(
-                    [
-                        "fecha_hora",
-                        "codigo",
-                        "nombre",
-                        "cantidad",
-                        "precio_unitario",
-                        "total",
-                    ]
-                )
+    # load_settings and init_sales_log removed in favor of Core Managers
 
     def create_styles(self):
         """Configure ttk styles."""
@@ -517,11 +486,13 @@ class ReportsApp(tk.Tk):
         except FileNotFoundError:
             pass
 
-        self.report_total_label.config(text=f"${daily_total:.2f}")
-        self.entradas_total_label.config(text=f"${entries_total:.2f}")
-        self.salidas_total_label.config(text=f"${exits_total:.2f}")
-        net_total = daily_total + entries_total - exits_total
-        self.net_total_label.config(text=f"${net_total:.2f}")
+        # Use SalesManager to get totals
+        totals = self.sales_manager.get_totals_for_range(start_date, end_date)
+        
+        self.report_total_label.config(text=f"${totals['sales']:.2f}")
+        self.entradas_total_label.config(text=f"${totals['entries']:.2f}")
+        self.salidas_total_label.config(text=f"${totals['exits']:.2f}")
+        self.net_total_label.config(text=f"${totals['net']:.2f}")
 
     def print_report(self):
         """Print the current report to thermal printer or export to HTML."""

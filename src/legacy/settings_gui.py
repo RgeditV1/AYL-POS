@@ -1,11 +1,10 @@
-#!/usr/bin/env python3
-import json
 import os
 import platform
 import sys
 import zipfile
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+from src.core.settings import SettingsManager
 
 # Prevent execution on Windows OS
 if platform.system() == "Windows":
@@ -27,11 +26,8 @@ class SettingsApp(tk.Tk):
         self.is_fullscreen = False  # Track fullscreen state
         
         # Base directory for absolute paths
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(os.path.dirname(current_dir))
-        self.base_dir = os.path.join(project_root, "data")
-        self.settings_file = os.path.join(self.base_dir, "settings.json")
-        os.makedirs(self.base_dir, exist_ok=True)
+        # Initialize SettingsManager
+        self.settings_manager = SettingsManager()
 
         self.create_styles()
         self.create_widgets()
@@ -281,11 +277,8 @@ class SettingsApp(tk.Tk):
             messagebox.showerror("Error", f"No se pudieron importar los datos: {e}")
 
     def load_settings(self):
-        if not os.path.exists(self.settings_file):
-            return
-
-        with open(self.settings_file, "r", encoding="utf-8") as f:
-            settings = json.load(f)
+        """Load settings using SettingsManager."""
+        settings = self.settings_manager.load_settings()
 
         for key, widget in self.entries.items():
             if key in settings:
@@ -303,14 +296,11 @@ class SettingsApp(tk.Tk):
             elif isinstance(widget, ttk.Label):
                 settings[key] = widget.cget("text")
 
-        try:
-            with open(self.settings_file, "w", encoding="utf-8") as f:
-                json.dump(settings, f, indent=4)
-            messagebox.showinfo("Éxito", "Configuración guardada exitosamente.")
-        except Exception as e:
-            messagebox.showerror(
-                "Error", f"No se pudo guardar la configuración.\nError: {e}"
-            )
+        success, message = self.settings_manager.save_settings(settings)
+        if success:
+            messagebox.showinfo("Éxito", message)
+        else:
+            messagebox.showerror("Error", message)
 
     def exit_app(self):
         """Exit the application."""

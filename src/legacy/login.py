@@ -58,155 +58,7 @@ if platform.system() == "Windows":
     sys.exit(1)
 
 
-class UserManager:
-    """Manages user authentication and authorization with secure hashing."""
-
-    def __init__(self, credentials_file=None):
-        if credentials_file is None:
-            # Point to root/data/.credentials
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            project_root = os.path.dirname(os.path.dirname(current_dir))
-            credentials_dir = os.path.join(project_root, "data")
-            os.makedirs(credentials_dir, exist_ok=True)
-            self.credentials_file = os.path.join(credentials_dir, ".credentials")
-        else:
-            self.credentials_file = credentials_file
-        self.ensure_credentials_file()
-
-    def ensure_credentials_file(self):
-        """Ensure the credentials file exists."""
-        if not os.path.exists(self.credentials_file):
-            print(
-                f"Advertencia: {self.credentials_file} no encontrado. Creando usuario admin por defecto."
-            )
-            self.create_user("admin", "password", "admin", save_now=True)
-
-    def hash_password(self, password, salt=None):
-        """Hash a password using pbkdf2_hmac."""
-        if salt is None:
-            salt = os.urandom(16)
-        else:
-            if isinstance(salt, str):
-                salt = bytes.fromhex(salt)
-        
-        # 100,000 iterations of SHA256
-        pwd_hash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)
-        return salt.hex() + "$" + pwd_hash.hex()
-
-    def verify_password(self, stored_password, provided_password):
-        """Verify a stored password against a provided password."""
-        try:
-            # Check if it's an old base64 password (no '$' separator and looks like base64)
-            if "$" not in stored_password:
-                # Attempt to decode as base64 to see if it's a legacy password
-                try:
-                    decoded = base64.b64decode(stored_password).decode("utf-8")
-                    # If successful, compare plaintexts
-                    return decoded == provided_password
-                except Exception:
-                    return False
-            
-            salt_hex, hash_hex = stored_password.split("$")
-            salt = bytes.fromhex(salt_hex)
-            pwd_hash = hashlib.pbkdf2_hmac('sha256', provided_password.encode('utf-8'), salt, 100000)
-            return hmac.compare_digest(pwd_hash.hex(), hash_hex)
-        except Exception:
-            return False
-
-    def load_users(self):
-        """Load all users from the credentials file."""
-        users = {}
-        try:
-            with open(self.credentials_file, "r") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    parts = line.split(":")
-                    if len(parts) == 3:
-                        username, password_data, role = parts
-                        users[username] = {
-                            "password": password_data,
-                            "role": role,
-                        }
-        except FileNotFoundError:
-            pass
-        return users
-
-    def save_users(self, users):
-        """Save all users to the credentials file."""
-        with open(self.credentials_file, "w") as f:
-            for username, data in users.items():
-                f.write(f"{username}:{data['password']}:{data['role']}\n")
-
-    def authenticate(self, username, password):
-        """Authenticate a user and return their role if successful."""
-        users = self.load_users()
-        if username in users:
-            stored_password = users[username]["password"]
-            if self.verify_password(stored_password, password):
-                # Check if migration from legacy format is needed
-                if "$" not in stored_password:
-                    print(f"Migrando contraseña para usuario '{username}' a formato seguro...")
-                    new_hash = self.hash_password(password)
-                    users[username]["password"] = new_hash
-                    self.save_users(users)
-                
-                return users[username]["role"]
-        return None
-
-    def create_user(self, username, password, role, save_now=False):
-        """Create a new user."""
-        users = self.load_users()
-        if username in users:
-            return False, "El usuario ya existe."
-
-        if role not in ["admin", "cashier"]:
-            return False, "Rol inválido. Debe ser 'admin' o 'cashier'."
-
-        # Hash the password before saving
-        hashed_password = self.hash_password(password)
-        users[username] = {"password": hashed_password, "role": role}
-        
-        if save_now:
-            self.save_users(users)
-        else:
-            # If not saving immediately, we still update the dict, 
-            # but usually this method is called when we want to persist.
-            self.save_users(users)
-            
-        return True, "Usuario creado exitosamente."
-
-    def delete_user(self, username):
-        """Delete a user."""
-        users = self.load_users()
-        if username not in users:
-            return False, "Usuario no encontrado."
-
-        if (
-            username == "admin"
-            and len([u for u in users if users[u]["role"] == "admin"]) == 1
-        ):
-            return False, "No se puede eliminar el último usuario administrador."
-
-        del users[username]
-        self.save_users(users)
-        return True, "Usuario eliminado exitosamente."
-
-    def change_password(self, username, new_password):
-        """Change a user's password."""
-        users = self.load_users()
-        if username not in users:
-            return False, "Usuario no encontrado."
-
-        users[username]["password"] = self.hash_password(new_password)
-        self.save_users(users)
-        return True, "Contraseña cambiada exitosamente."
-
-    def list_users(self):
-        """List all users."""
-        users = self.load_users()
-        return users
+from src.core.auth import UserManager
 
 
 class LoginSystem:
@@ -441,11 +293,11 @@ class LoginSystem:
             else:
                 env['PYTHONPATH'] = project_root
 
-            # Pass user role to pos_gui.py for role-based access control
-            if script_name == "pos_gui.py" and self.current_role:
-                subprocess.run([sys.executable, full_path, self.current_role], env=env)
-            else:
-                subprocess.run([sys.executable, full_path], env=env)
+            # Wait for process and check for error
+            result = subprocess.run([sys.executable, full_path, self.current_role] if script_name == "pos_gui.py" and self.current_role else [sys.executable, full_path], env=env)
+            if result.returncode != 0:
+                 print(f"\n{Colors.BG_RED}{Colors.BOLD} ERROR {Colors.RESET} {Colors.RED}El programa '{script_name}' terminó inesperadamente (Código {result.returncode}).{Colors.RESET}")
+                 input(f"{Colors.YELLOW}Presione Enter para ver los detalles arriba y regresar al menú...{Colors.RESET}")
         except Exception as e:
             print(f"\n{Colors.RED}Error ejecutando {script_name}: {e}{Colors.RESET}")
             input(f"\n{Colors.YELLOW}Presione Enter para continuar...{Colors.RESET}")

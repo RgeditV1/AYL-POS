@@ -1,17 +1,15 @@
-import base64
-import csv
-import fcntl
-import json
 import os
 import platform
-import subprocess
 import sys
+import subprocess
 import tempfile
-import tkinter as tk
 import webbrowser
+import tkinter as tk
 from datetime import datetime
-from pathlib import Path
 from tkinter import messagebox, ttk
+from src.core.inventory import InventoryManager
+from src.core.sales import SalesManager
+from src.core.settings import SettingsManager
 
 try:
     from src.core.thermal_printer import ThermalPrinter
@@ -51,43 +49,43 @@ class POS_GUI(tk.Tk):
         if not os.path.exists(self.base_dir):
             os.makedirs(self.base_dir, exist_ok=True)
 
-        self.settings = self.load_settings()
-        self.products = self.load_products()
+        # Initialize Core Managers
+        self.inventory_manager = InventoryManager()
+        self.sales_manager = SalesManager()
+        self.settings_manager = SettingsManager()
+
+        self.settings = self.settings_manager.load_settings()
+        self.products = self.inventory_manager.load_products()
         self.active_tickets = {1: {}, 2: {}}
         self.current_ticket_id = 1
-        self.sale_items = self.active_tickets[1]  # Dictionary to handle quantities: {codigo: {'nombre': str, 'precio': float, 'cantidad': int}}
-        self.last_added_barcode = (
-            None  # Track the last added product for quick re-addition
-        )
-        self.search_timer = None  # Timer for debounce search
+        self.sale_items = self.active_tickets[1]
+        self.last_added_barcode = None
+        self.search_timer = None
 
         self.create_styles()
-        self.init_sales_log()
-        self.init_cash_flow_log()
         self.create_widgets()
-        self.update_time()  # Start the clock
+        self.update_time()
         self.after(100, lambda: self.product_combobox.focus_set())  # Focus on product combobox
 
         # Bind F11 for fullscreen toggle
         self.bind("<F11>", self.toggle_fullscreen)
 
-    def load_settings(self):
-        """Load settings from JSON file with default fallback."""
-        default_settings = {
-            "business_name": "Mi Tienda",
-            "address": "Calle Principal 123",
-            "phone": "555-0199",
-            "cashier_name": "Cajero",
-            "logo_path": ""
-        }
-        try:
-            settings_path = os.path.join(self.base_dir, "settings.json")
-            with open(settings_path, "r", encoding="utf-8") as f:
-                loaded = json.load(f)
-                default_settings.update(loaded)  # Merge with defaults
-                return default_settings
-        except (FileNotFoundError, json.JSONDecodeError):
-            return default_settings
+    def log_sale(self, items=None):
+        """Log the sale using SalesManager."""
+        target_items = items if items is not None else self.sale_items
+        success, message = self.sales_manager.log_sale(target_items)
+        if not success:
+            print(f"Error al registrar venta: {message}")
+
+    def update_inventory(self):
+        """Update product inventory using InventoryManager."""
+        adjustments = {barcode: item["qty"] for barcode, item in self.sale_items.items()}
+        success, message = self.inventory_manager.update_stock(adjustments)
+        if not success:
+            messagebox.showerror("Error de Inventario", message)
+        else:
+            # Refresh local products list
+            self.products = self.inventory_manager.load_products()
 
     def update_time(self):
         """Update date and time labels every second."""
@@ -103,163 +101,12 @@ class POS_GUI(tk.Tk):
         date_str = f"{day_name}, {now.day} de {month_name} de {now.year}"
         time_str = now.strftime("%I:%M %p")
 
-        self.date_label.config(text=date_str)
-        self.time_label.config(text=time_str)
+        # Check if labels are initialized before updating
+        if hasattr(self, 'date_label') and hasattr(self, 'time_label'):
+            self.date_label.config(text=date_str)
+            self.time_label.config(text=time_str)
 
         self.after(1000, self.update_time)
-
-    def init_sales_log(self):
-        """Initialize ventas.csv with headers if it doesn't exist."""
-        filepath = os.path.join(self.base_dir, "ventas.csv")
-        if not os.path.exists(filepath):
-            with open(filepath, "w", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                writer.writerow(
-                    [
-                        "fecha_hora",
-                        "codigo",
-                        "nombre",
-                        "cantidad",
-                        "precio_unitario",
-                        "total",
-                    ]
-                )
-
-    def log_sale(self, items=None):
-        """Log the sale to ventas.csv."""
-        target_items = items if items is not None else self.sale_items
-        if not target_items:
-            return
-
-        timestamp = datetime.now().isoformat()
-        filepath = os.path.join(self.base_dir, "ventas.csv")
-        with open(filepath, "a", newline="", encoding="utf-8") as f:
-            fcntl.flock(f, fcntl.LOCK_EX)
-            try:
-                writer = csv.writer(f)
-                for barcode, item in target_items.items():
-                    writer.writerow(
-                        [
-                            timestamp,
-                            barcode,
-                            item["nombre"],
-                            item["qty"],
-                            item["precio"],
-                            item["qty"] * item["precio"],
-                        ]
-                    )
-            finally:
-                fcntl.flock(f, fcntl.LOCK_UN)
-
-    def update_inventory(self):
-        """Update product inventory in productos.csv after a sale."""
-        filepath = Path(os.path.join(self.base_dir, "productos.csv"))
-        if not filepath.exists():
-            messagebox.showerror("Error", f"Archivo '{filepath}' no encontrado.")
-            return
-
-        try:
-            with open(filepath, mode="r+", newline="", encoding="utf-8") as file:
-                # Acquire an exclusive lock
-                fcntl.flock(file, fcntl.LOCK_EX)
-                
-                try:
-                    reader = csv.reader(file)
-                    lines = list(reader)
-                    
-                    if not lines:
-                        messagebox.showerror("Error", "El archivo de productos está vacío.")
-                        return
-
-                    header = lines[0]
-                    product_lines = lines[1:]
-
-                    # Create a dictionary for quick lookup by barcode
-                    products_dict = {row[0]: row for row in product_lines}
-                    
-                    # Track if any changes were made
-                    changes_made = False
-
-                    # Update quantities
-                    for barcode, item in self.sale_items.items():
-                        if barcode in products_dict:
-                            try:
-                                # Assuming 'inventario' is the 4th column (index 3)
-                                current_stock = int(products_dict[barcode][3])
-                                new_stock = current_stock - item["qty"]
-                                products_dict[barcode][3] = str(new_stock)
-                                changes_made = True
-                            except (ValueError, IndexError):
-                                print(f"Advertencia: No se pudo actualizar el inventario para el código {barcode}")
-                    
-                    if changes_made:
-                        # Reconstruct the lines in the original order
-                        updated_lines = [header] + [products_dict.get(row[0], row) for row in product_lines]
-                        
-                        # Rewind and write
-                        file.seek(0)
-                        writer = csv.writer(file)
-                        writer.writerows(updated_lines)
-                        file.truncate()
-                        
-                finally:
-                    # Always unlock
-                    fcntl.flock(file, fcntl.LOCK_UN)
-                    
-        except Exception as e:
-            messagebox.showerror("Error", f"No se pudo actualizar el inventario: {e}")
-
-    def load_products(self):
-        """Load products from CSV file."""
-        products = {}
-        filepath = Path(os.path.join(self.base_dir, "productos.csv"))
-        if not filepath.exists():
-            messagebox.showerror("Error", f"Archivo '{filepath}' no encontrado.")
-            self.destroy()
-            return products
-
-        try:
-            with open(filepath, mode="r", encoding="utf-8") as infile:
-                reader = csv.reader(infile)
-                header = next(reader, None)  # Skip header
-                if not header:
-                    raise ValueError("Archivo de productos vacío o faltan encabezados.")
-                for row_num, row in enumerate(reader, start=2):
-                    if len(row) >= 4:  # At least codigo, nombre, precio, inventario
-                        barcode = row[0].strip().lstrip("0") or "0"
-                        name, price_str, inventario_str = row[1:4]
-                        try:
-                            price = float(price_str)
-                            inventario = int(inventario_str)
-                            products[barcode] = {
-                                "nombre": name.strip(),
-                                "precio": price,
-                                "inventario": inventario,
-                            }
-                        except ValueError:
-                            print(
-                                f"Advertencia: Precio o inventario inválido en fila {row_num}"
-                            )
-                    elif len(row) >= 3:  # Fallback for rows without inventario
-                        barcode = row[0].strip().lstrip("0") or "0"
-                        name, price_str = row[1:3]
-                        try:
-                            price = float(price_str)
-                            products[barcode] = {
-                                "nombre": name.strip(),
-                                "precio": price,
-                                "inventario": 0,  # Default inventario to 0
-                            }
-                        except ValueError:
-                            print(f"Advertencia: Precio inválido en fila {row_num}")
-                    else:
-                        print(f"Advertencia: Fila incompleta {row_num}: {row}")
-        except Exception as e:
-            messagebox.showerror(
-                "Error de Datos", f"Error leyendo datos de productos: {e}"
-            )
-            self.destroy()
-        return products
 
     def create_styles(self):
         """Configure ttk styles."""
@@ -724,22 +571,11 @@ class POS_GUI(tk.Tk):
         """Open exit window for cash outflow."""
         EntryExitWindow(self, "Salida Efectivo", "exits")
 
-    def log_cash_flow(self, transaction_type, amount, concept):
-        """Log cash flow transaction to CSV."""
-        timestamp = datetime.now().isoformat()
-        filepath = os.path.join(self.base_dir, "flujo_caja.csv")
-        with open(filepath, "a", newline="", encoding="utf-8") as f:
-            fcntl.flock(f, fcntl.LOCK_EX)
-            try:
-                writer = csv.writer(f)
-                writer.writerow([timestamp, transaction_type, amount, concept])
-            finally:
-                fcntl.flock(f, fcntl.LOCK_UN)
+    def log_cash_flow(self, tipo, monto, concepto):
+        """Log cash flow transaction using core manager."""
+        self.sales_manager.log_cash_flow(tipo, monto, concepto)
 
     def init_cash_flow_log(self):
-        """Initialize flujo_caja.csv with headers if it doesn't exist."""
-        filepath = os.path.join(self.base_dir, "flujo_caja.csv")
-        if not os.path.exists(filepath):
             with open(filepath, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
                 writer.writerow(["fecha_hora", "tipo", "monto", "concepto"])
