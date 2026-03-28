@@ -353,6 +353,10 @@ class ReportsView(ft.Container):
             self.end_date = date.fromisoformat(self.end_picker.value.strip())
         except ValueError:
             self._show_snack("Formato de fecha inválido. Use YYYY-MM-DD.", error=True)
+            self.start_picker.value = self.start_date.isoformat()
+            self.end_picker.value = self.end_date.isoformat()
+            self.start_picker.update()
+            self.end_picker.update()
             return
         self._load_data()
 
