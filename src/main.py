@@ -10,6 +10,7 @@ if project_root not in sys.path:
 import flet as ft
 from src.gui.login import LoginSystem
 from src.gui.pos_view import POSView
+from src.gui.about_view import AboutView
 from src.gui.reports_view import ReportsView
 from src.gui.inventory_view import InventoryView
 from src.gui.settings_view import SettingsView
@@ -55,7 +56,10 @@ class AYL_Application:
     def _show_login(self):
         self._configure_login_window()
         self.page.controls.clear()
-        login_view = LoginSystem(on_login_success=self.handle_login_success)
+        login_view = LoginSystem(
+            on_login_success=self.handle_login_success,
+            on_open_about=self._show_about_from_login,
+        )
         self.page.add(login_view)
         self.page.update()
 
@@ -75,6 +79,7 @@ class AYL_Application:
             on_open_reports=self._show_reports if role == "admin" else None,
             on_open_inventory=self._show_inventory if role == "admin" else None,
             on_open_settings=self._show_settings if role == "admin" else None,
+            on_open_about=self._show_about,
         )
         self.page.add(pos)
         self.page.update()
@@ -110,6 +115,28 @@ class AYL_Application:
             on_back=lambda: self._load_pos_view(username, role),
         )
         self.page.add(settings)
+        self.page.update()
+
+    def _show_about(self, username: str, role: str):
+        """Switch from POS → About view."""
+        self.page.controls.clear()
+        about = AboutView(
+            username=username,
+            role=role,
+            on_back=lambda: self._load_pos_view(username, role),
+        )
+        self.page.add(about)
+        self.page.update()
+
+    def _show_about_from_login(self):
+        """Show About from login screen."""
+        self.page.controls.clear()
+        about = AboutView(
+            username="Invitado",
+            role="visitante",
+            on_back=self._show_login,
+        )
+        self.page.add(about)
         self.page.update()
 
     def _return_to_pos(self, username: str, role: str):

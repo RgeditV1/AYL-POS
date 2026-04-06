@@ -5,3 +5,4 @@ __pycache__/
 data/*.csv
 data/settings.json
 backups/*
+.codex

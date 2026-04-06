@@ -10,7 +10,7 @@ class POSView(ft.Container):
     """Main POS View. Reimplementation of legacy pos_gui.py in Flet."""
 
     def __init__(self, username: str, role: str, on_logout=None, on_open_reports=None,
-                 on_open_inventory=None, on_open_settings=None):
+                 on_open_inventory=None, on_open_settings=None, on_open_about=None):
         super().__init__()
         self.expand = True
         self.username = username
@@ -19,6 +19,7 @@ class POSView(ft.Container):
         self.on_open_reports = on_open_reports
         self.on_open_inventory = on_open_inventory
         self.on_open_settings = on_open_settings
+        self.on_open_about = on_open_about
 
         # Core managers
         self.inventory_manager = InventoryManager()
@@ -135,6 +136,13 @@ class POSView(ft.Container):
                         on_click=handler,
                     )
                 )
+
+        nav_buttons.append(
+            ft.TextButton(
+                content=ft.Text("Acerca de", size=13),
+                on_click=self._open_about,
+            )
+        )
 
         nav_buttons.append(
             ft.OutlinedButton(
@@ -820,6 +828,12 @@ class POSView(ft.Container):
             self.on_open_reports(self.username, self.role)
         else:
             self._show_snack("Módulo de Reportes no disponible.")
+
+    def _open_about(self, e=None):
+        if self.on_open_about:
+            self.on_open_about(self.username, self.role)
+        else:
+            self._show_snack("Módulo de Acerca de no disponible.")
 
     def _logout(self, e=None):
         if self.on_logout:

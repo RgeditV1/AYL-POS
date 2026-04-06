@@ -3,9 +3,10 @@ from src.core.auth import UserManager
 
 
 class LoginSystem(ft.Container):
-    def __init__(self, on_login_success):
+    def __init__(self, on_login_success, on_open_about=None):
         super().__init__()
         self.on_login_success = on_login_success
+        self.on_open_about = on_open_about
         self.user_manager = UserManager()
         self.expand = True
         self.alignment = ft.Alignment.CENTER
@@ -45,6 +46,10 @@ class LoginSystem(ft.Container):
         )
 
         self.error_text = ft.Text(color=ft.Colors.RED, visible=False)
+        self.about_button = ft.TextButton(
+            content=ft.Text("Acerca de", size=13),
+            on_click=lambda e: self._open_about(),
+        )
 
         # Main Card Content
         self.content = ft.Card(
@@ -60,6 +65,7 @@ class LoginSystem(ft.Container):
                         self.error_text,
                         ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
                         self.login_button,
+                        self.about_button,
                     ],
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                     spacing=15,
@@ -99,3 +105,7 @@ class LoginSystem(ft.Container):
             self.page.overlay.append(snack)
             snack.open = True
             self.page.update()
+
+    def _open_about(self):
+        if self.on_open_about:
+            self.on_open_about()
