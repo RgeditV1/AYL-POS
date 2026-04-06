@@ -12,7 +12,11 @@ class SettingsManager:
             "address": "Calle Principal 123",
             "phone": "+18094429999",
             "cashier_name": "Cajero",
-            "logo_path": ""
+            "logo_path": "",
+            "printer_name": "",
+            "printer_vid": "",
+            "printer_pid": "",
+            "require_sudo_print": False
         }
 
     def load_settings(self):

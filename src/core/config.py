@@ -19,5 +19,6 @@ if not os.path.exists(BACKUP_DIR):
 PRODUCTS_CSV = os.path.join(DATA_DIR, "productos.csv")
 SALES_CSV = os.path.join(DATA_DIR, "ventas.csv")
 CASH_FLOW_CSV = os.path.join(DATA_DIR, "flujo_caja.csv")
+TICKETS_CSV = os.path.join(DATA_DIR, "tickets.csv")
 SETTINGS_JSON = os.path.join(DATA_DIR, "settings.json")
 CREDENTIALS_FILE = os.path.join(DATA_DIR, ".credentials")

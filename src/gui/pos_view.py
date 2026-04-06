@@ -1,9 +1,13 @@
 import asyncio
+import json
+import platform
 from datetime import datetime
 import flet as ft
 from src.core.inventory import InventoryManager
 from src.core.sales import SalesManager
 from src.core.settings import SettingsManager
+from src.core.printer import PrinterManager
+from src.core.ticket import build_ticket_text
 
 
 class POSView(ft.Container):
@@ -28,6 +32,7 @@ class POSView(ft.Container):
 
         # Load data
         self.settings = self.settings_manager.load_settings()
+        self.printer_manager = PrinterManager(self.settings)
         self._reload_products()
 
         # Sale state: multiple tickets
@@ -84,7 +89,7 @@ class POSView(ft.Container):
         # Items in right panel (compact)
         self.order_items_column = ft.Column(
             scroll=ft.ScrollMode.AUTO,
-            height=220,
+            height=170,
             spacing=2,
         )
 
@@ -222,7 +227,6 @@ class POSView(ft.Container):
         pay_button = ft.FilledButton(
             content=ft.Text("F1 · COBRAR", size=17, weight=ft.FontWeight.BOLD),
             expand=True,
-            height=56,
             on_click=self._show_payment_dialog,
             style=ft.ButtonStyle(
                 shape=ft.RoundedRectangleBorder(radius=10),
@@ -235,7 +239,40 @@ class POSView(ft.Container):
             content=ft.Text("Limpiar ticket", size=13),
             expand=True,
             on_click=self._clear_sale,
-            style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=8),
+                padding=ft.Padding(left=12, top=8, right=12, bottom=8),
+            ),
+        )
+
+        reprint_button = ft.OutlinedButton(
+            content=ft.Text("Reimprimir ticket", size=13),
+            expand=True,
+            on_click=lambda e: self._open_reprint_dialog(),
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=8),
+                padding=ft.Padding(left=12, top=8, right=12, bottom=8),
+            ),
+        )
+
+        cancel_sale_button = ft.OutlinedButton(
+            content=ft.Text("Cancelar venta", size=13),
+            expand=True,
+            on_click=lambda e: self._open_cancel_sale_dialog(),
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=8),
+                padding=ft.Padding(left=12, top=8, right=12, bottom=8),
+            ),
+        )
+
+        free_item_button = ft.OutlinedButton(
+            content=ft.Text("Artículo libre", size=13),
+            expand=True,
+            on_click=lambda e: self._open_free_item_dialog(),
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=8),
+                padding=ft.Padding(left=12, top=8, right=12, bottom=8),
+            ),
         )
 
         cash_in_button = ft.TextButton(
@@ -267,7 +304,9 @@ class POSView(ft.Container):
                     ft.Divider(height=8, color=ft.Colors.TRANSPARENT),
                     pay_button,
                     ft.Divider(height=2, color=ft.Colors.TRANSPARENT),
-                    clear_button,
+                    ft.Row([clear_button, reprint_button], spacing=8),
+                    ft.Divider(height=2, color=ft.Colors.TRANSPARENT),
+                    ft.Row([cancel_sale_button, free_item_button], spacing=8),
                     ft.Divider(),
                     ft.Row(
                         [cash_in_button, cash_out_button],
@@ -689,7 +728,9 @@ class POSView(ft.Container):
                 ),
                 ft.FilledButton(
                     content=ft.Text("✓ Confirmar Pago", size=15),
-                    on_click=lambda e: self._complete_payment(dialog, ticket, total),
+                    on_click=lambda e: self._complete_payment(
+                        dialog, ticket, total, cash_field.value
+                    ),
                     style=ft.ButtonStyle(
                         bgcolor=ft.Colors.GREEN,
                         color=ft.Colors.WHITE,
@@ -720,18 +761,35 @@ class POSView(ft.Container):
         except Exception:
             pass
 
-    def _complete_payment(self, dialog, ticket, total):
-        # Log sale to CSV
+    def _complete_payment(self, dialog, ticket, total, cash_received=None):
+        ticket_id = self.sales_manager.create_ticket_id()
+        cash_val = None
+        change = None
+        if cash_received not in (None, ""):
+            try:
+                cash_val = float(cash_received)
+                change = cash_val - total
+            except ValueError:
+                cash_val = None
+                change = None
+
+        # Log sale to CSV and tickets
         self.sales_manager.log_sale(ticket)
+        self.sales_manager.log_ticket(ticket_id, ticket, total, self.username)
+
         # Update inventory stock
         adjustments = {code: item["qty"] for code, item in ticket.items()}
         self.inventory_manager.update_stock(adjustments)
-        # Reload products to reflect new stock
         self._reload_products()
 
         self._close_dialog(dialog)
         self._clear_sale()
-        self._show_snack(f"✓ Venta de ${total:.2f} registrada exitosamente.")
+
+        ticket_text = build_ticket_text(
+            self.settings, ticket, total, self.username, ticket_id, cash_val, change
+        )
+        self._try_print_text(ticket_text, on_success=f"✓ Venta de ${total:.2f} registrada.",
+                             on_skip=f"✓ Venta de ${total:.2f} registrada (sin impresión).")
 
     # ──────────────────────────────────────────────
     # Cash Flow Dialog
@@ -810,6 +868,330 @@ class POSView(ft.Container):
         self.page.overlay.append(snack)
         snack.open = True
         self.page.update()
+
+    def _try_print_text(self, text, on_success=None, on_skip=None):
+        if not self.printer_manager.has_valid_printer():
+            if on_skip:
+                self._show_snack(on_skip)
+            return
+
+        if platform.system() == "Linux" and self.settings.get("require_sudo_print"):
+            self._prompt_sudo_and_print(text, on_success, on_skip)
+            return
+
+        ok, msg = self.printer_manager.print_text(text)
+        if ok:
+            if on_success:
+                self._show_snack(on_success)
+        else:
+            if on_skip:
+                self._show_snack(f"{on_skip} · {msg}", error=True)
+
+    def _prompt_sudo_and_print(self, text, on_success=None, on_skip=None):
+        password_field = ft.TextField(
+            label="Contraseña sudo",
+            password=True,
+            can_reveal_password=True,
+            border_radius=8,
+        )
+
+        dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Permisos para imprimir", size=18, weight=ft.FontWeight.BOLD),
+            content=ft.Column(
+                [
+                    ft.Text("Ingresa la contraseña sudo para imprimir.", size=13),
+                    password_field,
+                ],
+                tight=True,
+                spacing=10,
+                width=300,
+            ),
+            actions=[
+                ft.TextButton(
+                    content=ft.Text("Cancelar"),
+                    on_click=lambda e: self._close_dialog(dialog),
+                ),
+                ft.FilledButton(
+                    content=ft.Text("Imprimir"),
+                    on_click=lambda e: self._do_sudo_print(dialog, text, password_field.value,
+                                                         on_success, on_skip),
+                    style=ft.ButtonStyle(
+                        bgcolor=ft.Colors.PRIMARY,
+                        color=ft.Colors.WHITE,
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                    ),
+                ),
+            ],
+        )
+
+        self.page.overlay.append(dialog)
+        dialog.open = True
+        self.page.update()
+
+    def _do_sudo_print(self, dialog, text, password, on_success=None, on_skip=None):
+        self._close_dialog(dialog)
+        ok, msg = self.printer_manager.print_text(text, sudo_password=password)
+        if ok:
+            if on_success:
+                self._show_snack(on_success)
+        else:
+            if on_skip:
+                self._show_snack(f"{on_skip} · {msg}", error=True)
+
+    def _open_reprint_dialog(self):
+        today = datetime.now().date()
+        tickets = self.sales_manager.get_tickets_for_date(today)
+        if not tickets:
+            self._show_snack("No hay tickets de hoy para reimprimir.", error=True)
+            return
+
+        options = []
+        for t in tickets:
+            label = f"{t['ticket_id']} · ${float(t['total']):.2f} · {t['estado']}"
+            options.append(ft.dropdown.Option(key=t["ticket_id"], text=label))
+
+        ticket_dropdown = ft.Dropdown(
+            label="Ticket",
+            options=options,
+            border_radius=8,
+            expand=True,
+        )
+
+        dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Reimprimir Ticket", size=18, weight=ft.FontWeight.BOLD),
+            content=ft.Column([ticket_dropdown], tight=True, spacing=8, width=320),
+            actions=[
+                ft.TextButton(
+                    content=ft.Text("Cancelar"),
+                    on_click=lambda e: self._close_dialog(dialog),
+                ),
+                ft.FilledButton(
+                    content=ft.Text("Reimprimir"),
+                    on_click=lambda e: self._reprint_ticket(dialog, ticket_dropdown.value),
+                    style=ft.ButtonStyle(
+                        bgcolor=ft.Colors.PRIMARY,
+                        color=ft.Colors.WHITE,
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                    ),
+                ),
+            ],
+        )
+        self.page.overlay.append(dialog)
+        dialog.open = True
+        self.page.update()
+
+    def _reprint_ticket(self, dialog, ticket_id):
+        if not ticket_id:
+            return
+        self._close_dialog(dialog)
+        row = self.sales_manager.get_ticket(ticket_id)
+        if not row:
+            self._show_snack("Ticket no encontrado.", error=True)
+            return
+        try:
+            items = json.loads(row.get("items_json") or "{}")
+        except Exception:
+            items = {}
+        total = float(row.get("total", 0.0))
+        ticket_text = build_ticket_text(self.settings, items, total, row.get("cajero", ""),
+                                        ticket_id)
+        self._try_print_text(ticket_text, on_success="Ticket reimpreso.",
+                             on_skip="No se pudo imprimir el ticket.")
+
+    def _open_cancel_sale_dialog(self):
+        today = datetime.now().date()
+        tickets = [t for t in self.sales_manager.get_tickets_for_date(today) if t["estado"] == "activa"]
+        if not tickets:
+            self._show_snack("No hay ventas activas para cancelar hoy.", error=True)
+            return
+
+        options = []
+        for t in tickets:
+            label = f"{t['ticket_id']} · ${float(t['total']):.2f}"
+            options.append(ft.dropdown.Option(key=t["ticket_id"], text=label))
+
+        ticket_dropdown = ft.Dropdown(
+            label="Venta",
+            options=options,
+            border_radius=8,
+            expand=True,
+        )
+
+        dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Cancelar Venta", size=18, weight=ft.FontWeight.BOLD),
+            content=ft.Column([ticket_dropdown], tight=True, spacing=8, width=320),
+            actions=[
+                ft.TextButton(
+                    content=ft.Text("Cerrar"),
+                    on_click=lambda e: self._close_dialog(dialog),
+                ),
+                ft.FilledButton(
+                    content=ft.Text("Cancelar venta"),
+                    on_click=lambda e: self._cancel_ticket(dialog, ticket_dropdown.value),
+                    style=ft.ButtonStyle(
+                        bgcolor=ft.Colors.RED,
+                        color=ft.Colors.WHITE,
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                    ),
+                ),
+            ],
+        )
+        self.page.overlay.append(dialog)
+        dialog.open = True
+        self.page.update()
+
+    def _cancel_ticket(self, dialog, ticket_id):
+        if not ticket_id:
+            return
+        self._close_dialog(dialog)
+        ok, result = self.sales_manager.cancel_ticket(ticket_id)
+        if not ok:
+            self._show_snack(result, error=True)
+            return
+        try:
+            items = json.loads(result.get("items_json") or "{}")
+        except Exception:
+            items = {}
+
+        # Revert stock and register negative sale
+        adjustments = {code: -item.get("qty", 0) for code, item in items.items()}
+        self.inventory_manager.update_stock(adjustments)
+        self.sales_manager.log_sale(items, sign=-1)
+        self._reload_products()
+        self._show_snack("Venta cancelada y revertida.", error=False)
+
+    def _open_free_item_dialog(self):
+        name_field = ft.TextField(label="Nombre del artículo", border_radius=8)
+        price_field = ft.TextField(
+            label="Precio",
+            border_radius=8,
+            keyboard_type=ft.KeyboardType.NUMBER,
+        )
+        qty_field = ft.TextField(
+            label="Cantidad",
+            value="1",
+            border_radius=8,
+            keyboard_type=ft.KeyboardType.NUMBER,
+        )
+        code_field = ft.TextField(
+            label="Código (para inventario)",
+            border_radius=8,
+            disabled=True,
+        )
+        add_inventory_checkbox = ft.Checkbox(
+            label="Agregar al inventario",
+            value=False,
+            on_change=lambda e: self._toggle_free_item_inventory(code_field, e.control.value),
+        )
+
+        dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Artículo fuera de inventario", size=18, weight=ft.FontWeight.BOLD),
+            content=ft.Column(
+                [
+                    name_field,
+                    price_field,
+                    qty_field,
+                    add_inventory_checkbox,
+                    code_field,
+                ],
+                tight=True,
+                spacing=10,
+                width=340,
+            ),
+            actions=[
+                ft.TextButton(
+                    content=ft.Text("Cancelar"),
+                    on_click=lambda e: self._close_dialog(dialog),
+                ),
+                ft.FilledButton(
+                    content=ft.Text("Agregar"),
+                    on_click=lambda e: self._add_free_item(
+                        dialog,
+                        name_field.value,
+                        price_field.value,
+                        qty_field.value,
+                        add_inventory_checkbox.value,
+                        code_field.value,
+                    ),
+                    style=ft.ButtonStyle(
+                        bgcolor=ft.Colors.PRIMARY,
+                        color=ft.Colors.WHITE,
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                    ),
+                ),
+            ],
+        )
+        self.page.overlay.append(dialog)
+        dialog.open = True
+        self.page.update()
+
+    def _toggle_free_item_inventory(self, code_field, enabled):
+        code_field.disabled = not enabled
+        if enabled:
+            code_field.value = code_field.value or self._generate_free_item_code()
+        try:
+            code_field.update()
+        except Exception:
+            pass
+
+    def _generate_free_item_code(self):
+        return f"OTR-{datetime.now().strftime('%H%M%S')}"
+
+    def _add_free_item(self, dialog, name, price, qty, add_inventory, code_value):
+        if not name or not str(name).strip():
+            self._show_snack("Ingresa un nombre válido.", error=True)
+            return
+        try:
+            price_val = float(price)
+        except Exception:
+            self._show_snack("Precio inválido.", error=True)
+            return
+        try:
+            qty_val = int(float(qty))
+            if qty_val <= 0:
+                raise ValueError()
+        except Exception:
+            self._show_snack("Cantidad inválida.", error=True)
+            return
+
+        code = code_value.strip() if add_inventory else self._generate_free_item_code()
+        if not code:
+            self._show_snack("Código inválido.", error=True)
+            return
+
+        # Add to ticket
+        ticket = self.active_tickets[self.current_ticket_id]
+        if code in ticket:
+            ticket[code]["qty"] += qty_val
+        else:
+            ticket[code] = {
+                "nombre": name.strip(),
+                "precio": price_val,
+                "qty": qty_val,
+            }
+
+        if add_inventory:
+            ok, msg = self.inventory_manager.add_product({
+                "codigo": code,
+                "nombre": name.strip(),
+                "precio": f"{price_val:.2f}",
+                "cantidad": str(qty_val),
+                "costo": "0.0",
+            })
+            if not ok:
+                self._show_snack(msg, error=True)
+            else:
+                self._reload_products()
+
+        self._close_dialog(dialog)
+        self._refresh_items_list()
+        self._refresh_ticket_tabs()
+        self._update_total()
+        self._show_snack("Artículo agregado al ticket.")
 
     def _open_products(self, e=None):
         if self.on_open_inventory:

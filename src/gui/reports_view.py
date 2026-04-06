@@ -7,6 +7,8 @@ from datetime import date, datetime, timedelta
 import flet as ft
 from src.core.sales import SalesManager
 from src.core.settings import SettingsManager
+from src.core.printer import PrinterManager
+from src.core.ticket import build_report_text
 from src.core.config import SALES_CSV, CASH_FLOW_CSV
 
 
@@ -26,6 +28,7 @@ class ReportsView(ft.Container):
         self.sales_manager = SalesManager()
         self.settings_manager = SettingsManager()
         self.settings = self.settings_manager.load_settings()
+        self.printer_manager = PrinterManager(self.settings)
 
         self.start_date: date = date.today()
         self.end_date: date = date.today()
@@ -175,6 +178,20 @@ class ReportsView(ft.Container):
             ),
         )
 
+        print_btn = ft.FilledButton(
+            content=ft.Row(
+                [ft.Icon(ft.Icons.PRINT, size=16), ft.Text("Imprimir", size=13)],
+                spacing=6,
+                tight=True,
+            ),
+            on_click=lambda e: self._print_report(),
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=8),
+                bgcolor=ft.Colors.PRIMARY,
+                color=ft.Colors.WHITE,
+            ),
+        )
+
         refresh_btn = ft.ElevatedButton(
             content=ft.Row(
                 [ft.Icon(ft.Icons.REFRESH, size=16), ft.Text("Actualizar", size=13)],
@@ -201,6 +218,7 @@ class ReportsView(ft.Container):
                         ft.VerticalDivider(width=12),
                         refresh_btn,
                         export_btn,
+                        print_btn,
                     ],
                     spacing=8,
                     wrap=True,
@@ -485,6 +503,12 @@ class ReportsView(ft.Container):
         # Store for export
         self._sales_data = sales_data
         self._cash_data = cash_data
+        self._report_totals = {
+            "sales": total_ventas_val,
+            "entries": total_entradas_val,
+            "exits": total_salidas_val,
+            "net": neto,
+        }
 
         try:
             self.update()
@@ -497,6 +521,82 @@ class ReportsView(ft.Container):
             padding=ft.Padding(left=10, top=6, right=10, bottom=6),
             border_radius=6,
         )
+
+    # ──────────────────────────────────────────────
+    # Print
+    # ──────────────────────────────────────────────
+
+    def _print_report(self):
+        if not self.printer_manager.has_valid_printer():
+            self._show_snack("No hay impresora válida configurada.", error=True)
+            return
+
+        totals = getattr(self, "_report_totals", {
+            "sales": 0.0,
+            "entries": 0.0,
+            "exits": 0.0,
+            "net": 0.0,
+        })
+        report_text = build_report_text(self.settings, self.start_date, self.end_date, totals)
+        ok, msg = self.printer_manager.print_text(report_text)
+        if ok:
+            self._show_snack("Reporte enviado a impresión.")
+            return
+
+        if "contraseña sudo" in msg.lower():
+            self._prompt_sudo_and_print(report_text)
+            return
+
+        self._show_snack(msg, error=True)
+
+    def _prompt_sudo_and_print(self, text):
+        password_field = ft.TextField(
+            label="Contraseña sudo",
+            password=True,
+            can_reveal_password=True,
+            border_radius=8,
+        )
+
+        dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Permisos para imprimir", size=18, weight=ft.FontWeight.BOLD),
+            content=ft.Column(
+                [
+                    ft.Text("Ingresa la contraseña sudo para imprimir.", size=13),
+                    password_field,
+                ],
+                tight=True,
+                spacing=10,
+                width=300,
+            ),
+            actions=[
+                ft.TextButton(
+                    content=ft.Text("Cancelar"),
+                    on_click=lambda e: self._close_dialog(dialog),
+                ),
+                ft.FilledButton(
+                    content=ft.Text("Imprimir"),
+                    on_click=lambda e: self._do_sudo_print(dialog, text, password_field.value),
+                    style=ft.ButtonStyle(
+                        bgcolor=ft.Colors.PRIMARY,
+                        color=ft.Colors.WHITE,
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                    ),
+                ),
+            ],
+        )
+
+        self.page.overlay.append(dialog)
+        dialog.open = True
+        self.page.update()
+
+    def _do_sudo_print(self, dialog, text, password):
+        self._close_dialog(dialog)
+        ok, msg = self.printer_manager.print_text(text, sudo_password=password)
+        if ok:
+            self._show_snack("Reporte enviado a impresión.")
+        else:
+            self._show_snack(msg, error=True)
 
     # ──────────────────────────────────────────────
     # Export
@@ -590,6 +690,10 @@ class ReportsView(ft.Container):
     # ──────────────────────────────────────────────
     # Helpers
     # ──────────────────────────────────────────────
+
+    def _close_dialog(self, dialog):
+        dialog.open = False
+        self.page.update()
 
     def _show_snack(self, message: str, error: bool = False):
         snack = ft.SnackBar(

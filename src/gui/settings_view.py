@@ -1,8 +1,10 @@
 import os
+import platform
 import zipfile
 import flet as ft
 from src.core.settings import SettingsManager
 from src.core.auth import UserManager
+from src.core.printer import PrinterDetector
 from src.core.config import (DATA_DIR, BACKUP_DIR, PRODUCTS_CSV,
                             SALES_CSV, CASH_FLOW_CSV, SETTINGS_JSON)
 
@@ -22,6 +24,7 @@ class SettingsView(ft.Container):
 
         self.settings_manager = SettingsManager()
         self.user_manager = UserManager()
+        self.printer_detector = PrinterDetector()
 
         self._active_tab = 0  # 0=Tienda, 1=Usuarios, 2=Datos
 
@@ -70,6 +73,26 @@ class SettingsView(ft.Container):
 
         # Tab content (built once, swapped in _switch_tab)
         self._tab_content = ft.Container(expand=True)
+
+        # Printers
+        self._printer_map = {}
+        self._loaded_printer_key = ""
+        self.f_printer = ft.Dropdown(
+            label="Impresora",
+            options=[],
+            border_radius=8,
+            expand=True,
+        )
+        self.refresh_printers_btn = ft.OutlinedButton(
+            content=ft.Text("Actualizar", size=12),
+            on_click=lambda e: self._refresh_printers(),
+            style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
+        )
+        self.require_sudo_checkbox = ft.Checkbox(
+            label="Solicitar contraseña sudo al imprimir (Linux)",
+            value=False,
+            visible=platform.system() == "Linux",
+        )
 
     # ──────────────────────────────────────────────
     # UI Assembly
@@ -205,6 +228,11 @@ class SettingsView(ft.Container):
                     ft.Row([self.f_business], spacing=10),
                     ft.Row([self.f_address], spacing=10),
                     ft.Row([self.f_phone, self.f_cashier], spacing=10),
+                    ft.Divider(height=12, color=ft.Colors.TRANSPARENT),
+                    ft.Text("Impresora", size=16, weight=ft.FontWeight.BOLD),
+                    ft.Divider(height=4, color=ft.Colors.TRANSPARENT),
+                    ft.Row([self.f_printer, self.refresh_printers_btn], spacing=10),
+                    self.require_sudo_checkbox,
                     ft.Divider(height=8, color=ft.Colors.TRANSPARENT),
                     ft.Row([save_btn]),
                 ],
@@ -218,24 +246,67 @@ class SettingsView(ft.Container):
         self.f_address.value = s.get("address", "")
         self.f_phone.value = s.get("phone", "")
         self.f_cashier.value = s.get("cashier_name", "")
+        self._loaded_printer_key = ""
+        vid = s.get("printer_vid", "")
+        pid = s.get("printer_pid", "")
+        if vid != "" and pid != "":
+            self._loaded_printer_key = f"{vid}:{pid}"
+        self.require_sudo_checkbox.value = bool(s.get("require_sudo_print", False))
+        self._refresh_printers()
         try:
             self.f_business.update()
             self.f_address.update()
             self.f_phone.update()
             self.f_cashier.update()
+            self.f_printer.update()
+            self.require_sudo_checkbox.update()
         except Exception:
             pass
 
     def _save_settings(self, e=None):
+        selected_key = self.f_printer.value or ""
+        printer_name = ""
+        printer_vid = ""
+        printer_pid = ""
+        if selected_key in self._printer_map:
+            p = self._printer_map[selected_key]
+            printer_name = p.get("name", "")
+            printer_vid = p.get("vid", "")
+            printer_pid = p.get("pid", "")
+
         settings = {
             "business_name": self.f_business.value.strip(),
             "address": self.f_address.value.strip(),
             "phone": self.f_phone.value.strip(),
             "cashier_name": self.f_cashier.value.strip(),
             "logo_path": "",
+            "printer_name": printer_name,
+            "printer_vid": printer_vid,
+            "printer_pid": printer_pid,
+            "require_sudo_print": bool(self.require_sudo_checkbox.value),
         }
         success, message = self.settings_manager.save_settings(settings)
         self._show_snack(message, error=not success)
+
+    def _refresh_printers(self):
+        printers = self.printer_detector.get_available_printers()
+        self._printer_map = {}
+        options = []
+        for p in printers:
+            key = f"{p['vid']}:{p['pid']}"
+            self._printer_map[key] = p
+            label = f"{p['name']} ({p['vid']}:{p['pid']})"
+            options.append(ft.dropdown.Option(key=key, text=label))
+
+        self.f_printer.options = options
+        if self._loaded_printer_key in self._printer_map:
+            self.f_printer.value = self._loaded_printer_key
+        else:
+            self.f_printer.value = None
+        try:
+            self.f_printer.update()
+        except Exception:
+            pass
 
     # ──────────────────────────────────────────────
     # Tab: Users

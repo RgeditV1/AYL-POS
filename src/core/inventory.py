@@ -125,3 +125,24 @@ class InventoryManager:
             if p["codigo"] == lookup:
                 return p
         return None
+
+    def add_product(self, product):
+        """Append a new product to the catalog."""
+        products = self.load_products()
+        code = str(product.get("codigo", "")).strip()
+        if not code:
+            return False, "Código inválido."
+        code = code.lstrip("0") or "0"
+
+        for p in products:
+            if p.get("codigo") == code:
+                return False, "El código ya existe."
+
+        products.append({
+            "codigo": code,
+            "nombre": str(product.get("nombre", "")).strip(),
+            "precio": str(product.get("precio", "0.0")).strip() or "0.0",
+            "cantidad": str(product.get("cantidad", "0")).strip() or "0",
+            "costo": str(product.get("costo", "0.0")).strip() or "0.0",
+        })
+        return self.save_products(products)
