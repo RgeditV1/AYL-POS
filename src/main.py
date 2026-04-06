@@ -8,7 +8,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 import flet as ft
-from src.gui.login import LoginSystem
+from src.gui.login import LoginSystem, LOBBY_WIDTH, LOBBY_HEIGHT
 from src.gui.pos_view import POSView
 from src.gui.about_view import AboutView
 from src.gui.reports_view import ReportsView
@@ -37,8 +37,8 @@ class AYL_Application:
 
     def _configure_login_window(self):
         """Set window size for the login screen."""
-        self.page.window.width = 440
-        self.page.window.height = 620
+        self.page.window.width = LOBBY_WIDTH
+        self.page.window.height = LOBBY_HEIGHT
         self.page.window.resizable = False
         self.page.window.full_screen = False
         self.page.vertical_alignment = ft.MainAxisAlignment.CENTER

@@ -2,6 +2,10 @@ import flet as ft
 from src.core.auth import UserManager
 
 
+LOBBY_WIDTH = 430
+LOBBY_HEIGHT = 540
+
+
 class LoginSystem(ft.Container):
     def __init__(self, on_login_success, on_open_about=None):
         super().__init__()
@@ -71,7 +75,8 @@ class LoginSystem(ft.Container):
                     spacing=15,
                 ),
                 padding=40,
-                width=350,
+                width=LOBBY_WIDTH,
+                height=LOBBY_HEIGHT,
             ),
             elevation=10,
         )
