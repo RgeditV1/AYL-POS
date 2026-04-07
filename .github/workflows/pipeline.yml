@@ -28,13 +28,13 @@ jobs:
         if: matrix.distro == 'archlinux'
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm python python-pip git base-devel
+          pacman -S --noconfirm python python-pip git base-devel patchelf curl
 
       - name: Install System Dependencies (Ubuntu)
         if: matrix.distro == 'ubuntu'
         run: |
           apt-get update
-          apt-get install -y python3 python3-pip git curl
+          apt-get install -y python3 python3-pip python3-dev git curl build-essential patchelf
 
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -52,6 +52,10 @@ jobs:
           # Instala dependencias según pyproject.toml y uv.lock
           uv sync --all-extras --dev
 
+      - name: Ensure USB Dependencies
+        run: |
+          uv pip install pyusb
+
       - name: Verify Project Structure
         run: |
           test -d src/core || exit 1
@@ -66,3 +70,13 @@ jobs:
 
       - name: Lockfile Integrity
         run: uv lock --check
+
+      - name: Build Binary (Nuitka)
+        run: |
+          uv run python3 scripts/build_binary.py
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ayl-pos-${{ matrix.distro }}
+          path: dist/AYL-POS.dist
