@@ -17,7 +17,13 @@ uv sync
 Para iniciar el sistema:
 
 ```bash
-uv run python3 -m src.main
+uv sync && uv run python3 -m src.main
+```
+
+### Compilacion
+
+```bash
+uv run python3 /scripts/build_binary.py
 ```
 
 ### Credenciales por Defecto
@@ -29,18 +35,18 @@ uv run python3 -m src.main
 
 ## Requisitos
 
-- **Sistema Operativo:** Linux (Ubuntu, Debian, Fedora, Arch, etc.)
 - **Python:** 3.11 o superior (gestionado preferiblemente por `uv`)
 - **Herramienta:** [uv](https://github.com/astral-sh/uv) instalada
 
 Para otras dependencias, consulte la sección de **Instalación de Dependencias**.
 
-**Importante:** Esta aplicación NO es compatible con Windows.
+**Importante:** Esta aplicación actualmente esta en desarollo para windows.
 
 ## Dependencias (Python)
 
 Estas son las dependencias declaradas en `pyproject.toml`:
 
+- `uv`
 - `flet`
 - `nuitka`
 - `pyusb`
@@ -56,6 +62,7 @@ Estas son las dependencias declaradas en `pyproject.toml`:
 2. **Gestión de Productos** - Añadir, editar y eliminar productos
 3. **Reportes** - Reportes de ventas y flujo de caja
 4. **Configuración** - Detalles del negocio y ajustes
+4. **Impresion** - Utiliza python-escpos para imprimir directamente desde la interfaz
 
 ### Sistema de Usuarios
 
@@ -71,63 +78,36 @@ Estas son las dependencias declaradas en `pyproject.toml`:
 ## Estructura de Archivos
 
 ```text
-data
-├── flujo_caja.csv
-├── .credentials # importante no perderlo
-├── productos.csv
-└── ventas.csv
-src
-├── core
-│   ├── auth.py
-│   ├── config.py
-│   ├── inventory.py
-│   ├── sales.py
-│   ├── settings.py
-│   └── thermal_printer.py
-├── gui
-│   ├── about_view.py
-│   ├── inventory_view.py
-│   ├── login.py
-│   ├── pos_view.py
-│   ├── reports_view.py
-│   ├── settings_view.py
-│   └── theme.py
-├── main.py
-└── Pos.png
+├── data
+├── LICENSE
+├── pyproject.toml
+├── README.md
+├── scripts
+│   └── build_binary.py
+├── src
+│   ├── core
+│   │   ├── auth.py
+│   │   ├── config.py
+│   │   ├── inventory.py
+│   │   ├── printer.py
+│   │   ├── sales.py
+│   │   ├── settings.py
+│   │   └── ticket.py
+│   ├── gui
+│   │   ├── about_view.py
+│   │   ├── inventory_view.py
+│   │   ├── login.py
+│   │   ├── pos_view.py
+│   │   ├── reports_view.py
+│   │   ├── settings_view.py
+│   │   └── theme.py
+│   ├── logo.ico
+│   ├── logo.png
+│   ├── main.py
+│   └── utils
+│       └── resources.py
+└── uv.lock
 ```
-
-## Gestión de Usuarios (Solo Administrador)
-
-### Añadir Usuario
-1. Inicie sesión como administrador
-2. Seleccione la opción 5: "Añadir Nuevo Usuario"
-3. Ingrese nombre de usuario y contraseña
-4. Seleccione el rol (administrador o cajero)
-
-### Cambiar Contraseña
-1. Inicie sesión como administrador
-2. Seleccione la opción 7: "Cambiar Contraseña"
-3. Seleccione el usuario
-4. Ingrese la nueva contraseña
-
-### Eliminar Usuario
-1. Inicie sesión como administrador
-2. Seleccione la opción 6: "Eliminar Usuario"
-3. Seleccione el usuario a eliminar
-4. Confirme la eliminación
-
-## Uso Diario
-
-### Para Cajeros
-1. Inicie sesión con credenciales de cajero
-2. Acceda al POS para realizar ventas
-3. Gestione el inventario de productos según sea necesario
-
-### Para Administradores
-1. Revise los reportes de ventas diariamente
-2. Actualice el inventario y los precios
-3. Gestione usuarios y la configuración del sistema
-4. Supervise el flujo de caja
 
 ## Seguridad
 
@@ -135,31 +115,6 @@ src
 - Control de acceso basado en roles
 - Protección contra la auto-eliminación del usuario activo
 - Protección del último usuario administrador
-
-## Archivos de Datos
-
-### productos.csv
-Formato: `codigo_barras,nombre,precio,inventario`
-
-### ventas.csv
-Formato: `marca_tiempo,codigo_barras,nombre,cantidad,precio_unitario,precio_total`
-
-### flujo_caja.csv
-Formato: `marca_tiempo,tipo,monto,concepto`
-
-## Notas
-
-- Los archivos CSV utilizan formato UTF-8
-- Las fechas están en formato AAAA-MM-DD (principalmente) o específico de la región
-- La interfaz está completamente en español
-- Los movimientos de flujo de caja se registran automáticamente con cada venta
-
-## Actualización del Sistema
-
-Para conservar los datos al actualizar:
-1. Realice una copia de seguridad de los archivos .csv, .credentials y settings.json
-2. Actualice los archivos .py
-3. Restaure los datos guardados
 
 ## Soporte
 
