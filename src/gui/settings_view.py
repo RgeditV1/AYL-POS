@@ -1,12 +1,14 @@
 import os
 import platform
 import zipfile
+from datetime import datetime
 import flet as ft
 from src.core.settings import SettingsManager
 from src.core.auth import UserManager
-from src.core.printer import PrinterDetector
+from src.core.printer import PrinterDetector, PrinterManager
 from src.core.config import (DATA_DIR, BACKUP_DIR, PRODUCTS_CSV,
                             SALES_CSV, CASH_FLOW_CSV, SETTINGS_JSON)
+from src.platform.admin import is_admin, permission_hint
 
 
 class SettingsView(ft.Container):
@@ -21,16 +23,20 @@ class SettingsView(ft.Container):
         self.username = username
         self.role = role
         self.on_back = on_back
+        self._pending_snacks = []
+        self._pending_load = True
 
         self.settings_manager = SettingsManager()
         self.user_manager = UserManager()
         self.printer_detector = PrinterDetector()
+        self.printer_manager = PrinterManager({})
+        self.settings = {}
 
         self._active_tab = 0  # 0=Tienda, 1=Usuarios, 2=Datos
 
         self._init_controls()
         self._build_ui()
-        self._load_settings()
+        # Defer settings load until control is mounted
 
     # ──────────────────────────────────────────────
     # Controls init
@@ -86,6 +92,11 @@ class SettingsView(ft.Container):
         self.refresh_printers_btn = ft.OutlinedButton(
             content=ft.Text("Actualizar", size=12),
             on_click=lambda e: self._refresh_printers(),
+            style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
+        )
+        self.print_test_btn = ft.OutlinedButton(
+            content=ft.Text("Impresión prueba", size=12),
+            on_click=lambda e: self._print_test_ticket(),
             style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
         )
         self.require_sudo_checkbox = ft.Checkbox(
@@ -232,6 +243,7 @@ class SettingsView(ft.Container):
                     ft.Text("Impresora", size=16, weight=ft.FontWeight.BOLD),
                     ft.Divider(height=4, color=ft.Colors.TRANSPARENT),
                     ft.Row([self.f_printer, self.refresh_printers_btn], spacing=10),
+                    ft.Row([self.print_test_btn], spacing=10),
                     self.require_sudo_checkbox,
                     ft.Divider(height=8, color=ft.Colors.TRANSPARENT),
                     ft.Row([save_btn]),
@@ -242,15 +254,22 @@ class SettingsView(ft.Container):
 
     def _load_settings(self):
         s = self.settings_manager.load_settings()
+        self.settings = s
+        self.printer_manager = PrinterManager(self.settings)
         self.f_business.value = s.get("business_name", "")
         self.f_address.value = s.get("address", "")
         self.f_phone.value = s.get("phone", "")
         self.f_cashier.value = s.get("cashier_name", "")
         self._loaded_printer_key = ""
-        vid = s.get("printer_vid", "")
-        pid = s.get("printer_pid", "")
-        if vid != "" and pid != "":
-            self._loaded_printer_key = f"{vid}:{pid}"
+        if platform.system() == "Windows":
+            name = s.get("printer_name", "")
+            if name:
+                self._loaded_printer_key = name
+        else:
+            vid = s.get("printer_vid", "")
+            pid = s.get("printer_pid", "")
+            if vid != "" and pid != "":
+                self._loaded_printer_key = f"{vid}:{pid}"
         self.require_sudo_checkbox.value = bool(s.get("require_sudo_print", False))
         self._refresh_printers()
         try:
@@ -281,21 +300,32 @@ class SettingsView(ft.Container):
             "cashier_name": self.f_cashier.value.strip(),
             "logo_path": "",
             "printer_name": printer_name,
-            "printer_vid": printer_vid,
-            "printer_pid": printer_pid,
+            "printer_vid": "" if platform.system() == "Windows" else printer_vid,
+            "printer_pid": "" if platform.system() == "Windows" else printer_pid,
             "require_sudo_print": bool(self.require_sudo_checkbox.value),
         }
         success, message = self.settings_manager.save_settings(settings)
+        if success:
+            self.settings = settings
+            self.printer_manager = PrinterManager(self.settings)
         self._show_snack(message, error=not success)
 
     def _refresh_printers(self):
         printers = self.printer_detector.get_available_printers()
+        if self.printer_detector.last_error:
+            self._show_snack(self.printer_detector.last_error, error=True)
         self._printer_map = {}
         options = []
         for p in printers:
-            key = f"{p['vid']}:{p['pid']}"
+            if platform.system() == "Windows":
+                key = p["name"]
+            else:
+                key = f"{p['vid']}:{p['pid']}"
             self._printer_map[key] = p
-            label = f"{p['name']} ({p['vid']}:{p['pid']})"
+            if platform.system() == "Windows":
+                label = p["name"]
+            else:
+                label = f"{p['name']} ({p['vid']}:{p['pid']})"
             options.append(ft.dropdown.Option(key=key, text=label))
 
         self.f_printer.options = options
@@ -377,7 +407,14 @@ class SettingsView(ft.Container):
         )
 
     def did_mount(self):
+        if self._pending_load:
+            self._pending_load = False
+            self._load_settings()
         self._refresh_users()
+        if self._pending_snacks:
+            for msg, is_error in self._pending_snacks:
+                self._show_snack(msg, error=is_error)
+            self._pending_snacks.clear()
 
     def _refresh_users(self):
         users = self.user_manager.load_users()
@@ -691,6 +728,10 @@ class SettingsView(ft.Container):
                         zipf.write(fpath, arcname=os.path.basename(fpath))
             self._show_snack(f"✓ Backup exportado: {export_path}")
         except Exception as ex:
+            if isinstance(ex, PermissionError) or "permission denied" in str(ex).lower():
+                if not is_admin():
+                    self._show_snack(permission_hint(), error=True)
+                    return
             self._show_snack(f"Error al exportar: {ex}", error=True)
 
     def _import_data(self, e=None):
@@ -749,6 +790,10 @@ class SettingsView(ft.Container):
             self._load_settings()
             self._show_snack("✓ Datos importados exitosamente.")
         except Exception as ex:
+            if isinstance(ex, PermissionError) or "permission denied" in str(ex).lower():
+                if not is_admin():
+                    self._show_snack(permission_hint(), error=True)
+                    return
             self._show_snack(f"Error al importar: {ex}", error=True)
 
     # ──────────────────────────────────────────────
@@ -760,6 +805,9 @@ class SettingsView(ft.Container):
         self.page.update()
 
     def _show_snack(self, message: str, error: bool = False):
+        if not getattr(self, "page", None):
+            self._pending_snacks.append((message, error))
+            return
         snack = ft.SnackBar(
             content=ft.Text(message),
             bgcolor=ft.Colors.RED if error else ft.Colors.GREEN,
@@ -767,6 +815,87 @@ class SettingsView(ft.Container):
         self.page.overlay.append(snack)
         snack.open = True
         self.page.update()
+
+    def _try_print_text(self, text):
+        if not self.printer_manager.has_valid_printer():
+            self._show_snack("No hay impresora válida configurada.", error=True)
+            return
+        if platform.system() == "Linux" and self.settings.get("require_sudo_print"):
+            self._prompt_sudo_and_print(text)
+            return
+        self._show_snack("Enviando a impresora...")
+        self.page.run_thread(self._print_worker, text, None)
+
+    def _print_worker(self, text, sudo_password=None):
+        ok, msg = self.printer_manager.print_text(text, sudo_password=sudo_password)
+        self._log_print_result(ok, msg)
+        self.page.run_task(self._after_print, ok, msg)
+
+    async def _after_print(self, ok, msg):
+        if ok:
+            self._show_snack("Prueba enviada a la impresora.")
+        else:
+            self._show_snack(msg or "No se pudo imprimir la prueba.", error=True)
+
+    def _prompt_sudo_and_print(self, text):
+        password_field = ft.TextField(
+            label="Contraseña sudo",
+            password=True,
+            can_reveal_password=True,
+            border_radius=8,
+        )
+
+        dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Permisos para imprimir", size=18, weight=ft.FontWeight.BOLD),
+            content=ft.Column(
+                [
+                    ft.Text("Se requiere contraseña sudo para imprimir.", size=12),
+                    password_field,
+                ],
+                tight=True,
+                spacing=8,
+                width=320,
+            ),
+            actions=[
+                ft.TextButton(
+                    content=ft.Text("Cancelar"),
+                    on_click=lambda e: self._close_dialog(dialog),
+                ),
+                ft.FilledButton(
+                    content=ft.Text("Imprimir"),
+                    on_click=lambda e: self._do_sudo_print(dialog, text, password_field.value),
+                    style=ft.ButtonStyle(
+                        bgcolor=ft.Colors.PRIMARY,
+                        color=ft.Colors.WHITE,
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                    ),
+                ),
+            ],
+        )
+
+        self.page.overlay.append(dialog)
+        dialog.open = True
+        self.page.update()
+
+    def _do_sudo_print(self, dialog, text, password):
+        self._close_dialog(dialog)
+        self._show_snack("Enviando a impresora...")
+        self.page.run_thread(self._print_worker, text, password)
+
+    def _log_print_result(self, ok, msg):
+        ts = datetime.now().isoformat(timespec="seconds")
+        status = "OK" if ok else "ERROR"
+        print(f"[PRINT {status}] {ts} · {msg}")
+
+    def _print_test_ticket(self):
+        test_text = (
+            "=== AYL POS ===\n"
+            "IMPRESION DE PRUEBA\n"
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+            "----------------\n\n"
+        )
+        self._try_print_text(test_text)
 
     def _go_back(self):
         if self.on_back:

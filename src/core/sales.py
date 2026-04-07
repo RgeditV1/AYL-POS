@@ -11,6 +11,7 @@ class SalesManager:
     def __init__(self, sales_file=None, cash_flow_file=None):
         self.sales_file = sales_file or SALES_CSV
         self.cash_flow_file = cash_flow_file or CASH_FLOW_CSV
+        self.last_error = None
         self.ensure_files_exist()
 
     def ensure_files_exist(self):
@@ -87,6 +88,7 @@ class SalesManager:
             return False, f"Error al guardar ticket: {e}"
 
     def get_tickets_for_date(self, target_date: date):
+        self.last_error = None
         tickets = []
         try:
             with open(TICKETS_CSV, "r", encoding="utf-8") as f:
@@ -101,9 +103,12 @@ class SalesManager:
                     flock(f, LOCK_UN)
         except FileNotFoundError:
             pass
+        except Exception as e:
+            self.last_error = f"Error al leer tickets: {e}"
         return tickets
 
     def get_ticket(self, ticket_id: str):
+        self.last_error = None
         try:
             with open(TICKETS_CSV, "r", encoding="utf-8") as f:
                 flock(f, LOCK_SH)
@@ -116,9 +121,12 @@ class SalesManager:
                     flock(f, LOCK_UN)
         except FileNotFoundError:
             return None
+        except Exception as e:
+            self.last_error = f"Error al leer ticket: {e}"
+            return None
         return None
 
-    def cancel_ticket(self, ticket_id: str):
+    def cancel_ticket(self, ticket_id: str, allow_any_date: bool = False):
         try:
             with open(TICKETS_CSV, "r", encoding="utf-8") as f:
                 flock(f, LOCK_SH)
@@ -143,9 +151,10 @@ class SalesManager:
         if not updated or ticket_row is None:
             return False, "Ticket no encontrado."
 
-        ticket_date = datetime.fromisoformat(ticket_row["fecha_hora"]).date()
-        if ticket_date != date.today():
-            return False, "Solo se pueden cancelar ventas del día."
+        if not allow_any_date:
+            ticket_date = datetime.fromisoformat(ticket_row["fecha_hora"]).date()
+            if ticket_date != date.today():
+                return False, "Solo se pueden cancelar ventas del día."
 
         # Rewrite file with updated status
         try:

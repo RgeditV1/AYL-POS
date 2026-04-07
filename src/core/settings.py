@@ -1,6 +1,7 @@
 import json
 import os
 from src.core.config import SETTINGS_JSON
+from src.platform.admin import is_admin, permission_hint
 
 class SettingsManager:
     """Manages store settings and configuration."""
@@ -44,4 +45,7 @@ class SettingsManager:
                 json.dump(clean_settings, f, indent=4)
             return True, "Configuración guardada exitosamente."
         except Exception as e:
+            if isinstance(e, PermissionError) or "permission denied" in str(e).lower():
+                if not is_admin():
+                    return False, permission_hint()
             return False, f"No se pudo guardar la configuración: {e}"

@@ -3,8 +3,11 @@ import subprocess
 import sys
 import tempfile
 import os
-import usb.core
-import usb.util
+if platform.system() != "Windows":
+    import usb.core
+    import usb.util
+else:
+    usb = None
 from src.utils.resources import is_frozen_app
 
 try:
@@ -19,6 +22,7 @@ except ModuleNotFoundError:
 class PrinterDetector:
     def __init__(self):
         self.PRINTER_CLASS = 0x07
+        self.last_error = None
 
     def _is_printer(self, dev):
         for cfg in dev:
@@ -29,7 +33,36 @@ class PrinterDetector:
 
     def get_available_printers(self):
         printers = []
-        devices = usb.core.find(find_all=True)
+        self.last_error = None
+        if platform.system() == "Windows":
+            try:
+                import win32print  # type: ignore
+                flags = win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS
+                for info in win32print.EnumPrinters(flags):
+                    name = info[2]
+                    printers.append({
+                        "name": name,
+                        "vid": "",
+                        "pid": "",
+                        "device": None,
+                    })
+            except Exception as e:
+                self.last_error = f"Error al listar impresoras de Windows: {e}"
+            return printers
+
+        try:
+            backend = None
+            if backend is not None:
+                devices = usb.core.find(find_all=True, backend=backend)
+            else:
+                devices = usb.core.find(find_all=True)
+        except Exception as e:
+            msg = str(e).lower()
+            if "no backend available" in msg or "backend" in msg:
+                self.last_error = "No hay backend USB disponible. Instala libusb/WinUSB (Zadig)."
+            else:
+                self.last_error = f"Error al detectar impresoras USB: {e}"
+            return printers
         for dev in devices:
             try:
                 if self._is_printer(dev):
@@ -84,6 +117,8 @@ class PrinterDetector:
             return None
 
     def connect_by_vid_pid(self, vid, pid):
+        if platform.system() == "Windows":
+            return None
         printers = self.get_available_printers()
         for p in printers:
             if p["vid"] == vid and p["pid"] == pid:
@@ -97,6 +132,8 @@ class PrinterManager:
         self.detector = PrinterDetector()
 
     def _selected_vid_pid(self):
+        if platform.system() == "Windows":
+            return None
         vid = self.settings.get("printer_vid")
         pid = self.settings.get("printer_pid")
         if vid in (None, "") or pid in (None, ""):
@@ -107,6 +144,8 @@ class PrinterManager:
             return None
 
     def has_valid_printer(self):
+        if platform.system() == "Windows":
+            return bool(self.settings.get("printer_name"))
         selected = self._selected_vid_pid()
         if not selected:
             return False
@@ -117,6 +156,11 @@ class PrinterManager:
         return False
 
     def _connect_selected(self):
+        if platform.system() == "Windows" and Win32Raw:
+            name = self.settings.get("printer_name")
+            if name:
+                return Win32Raw(name)
+            return None
         selected = self._selected_vid_pid()
         if not selected:
             return None
@@ -124,21 +168,20 @@ class PrinterManager:
         printer = self.detector.connect_by_vid_pid(vid, pid)
         if printer:
             return printer
-        if platform.system() == "Windows" and Win32Raw:
-            name = self.settings.get("printer_name")
-            if name:
-                return Win32Raw(name)
         return None
 
     def _print_direct(self, text):
-        if Usb is None:
+        if platform.system() != "Windows" and Usb is None:
             return False, "Falta la dependencia 'python-escpos'."
         printer = self._connect_selected()
         if not printer:
             return False, "No hay impresora válida conectada."
         try:
             printer.text(text)
-            printer.cut()
+            try:
+                printer.cut()
+            except Exception:
+                pass
             return True, "Impresión enviada."
         except escpos_exceptions.DeviceNotFoundError as e:
             msg = str(e).lower()
@@ -147,6 +190,11 @@ class PrinterManager:
             return False, f"Error de impresión: {e}"
         except Exception as e:
             return False, f"Error de impresión: {e}"
+        finally:
+            try:
+                printer.close()
+            except Exception:
+                pass
 
     def _print_with_sudo(self, text, sudo_password):
         if not sudo_password:

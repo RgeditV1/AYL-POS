@@ -1,5 +1,6 @@
 import csv
 import os
+import platform
 import tempfile
 import webbrowser
 from datetime import date, datetime, timedelta
@@ -538,15 +539,23 @@ class ReportsView(ft.Container):
             "net": 0.0,
         })
         report_text = build_report_text(self.settings, self.start_date, self.end_date, totals)
-        ok, msg = self.printer_manager.print_text(report_text)
-        if ok:
-            self._show_snack("Reporte enviado a impresión.")
-            return
-
-        if "contraseña sudo" in msg.lower():
+        if platform.system() == "Linux" and self.settings.get("require_sudo_print"):
             self._prompt_sudo_and_print(report_text)
             return
 
+        self.page.run_thread(self._print_worker, report_text)
+
+    def _print_worker(self, report_text):
+        ok, msg = self.printer_manager.print_text(report_text)
+        self.page.run_task(self._after_print, ok, msg)
+
+    async def _after_print(self, ok, msg):
+        if ok:
+            self._show_snack("Reporte enviado a impresión.")
+            return
+        if "contraseña sudo" in msg.lower():
+            self._prompt_sudo_and_print(report_text)
+            return
         self._show_snack(msg, error=True)
 
     def _prompt_sudo_and_print(self, text):

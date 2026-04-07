@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import os
 from src.core.config import CREDENTIALS_FILE
+from src.platform.admin import is_admin, permission_hint
 
 class UserManager:
     """Manages user authentication and authorization with secure hashing."""
@@ -94,6 +95,9 @@ class UserManager:
                     f.write(f"{username}:{data['password']}:{data['role']}\n")
             return True, "Usuarios guardados."
         except Exception as e:
+            if isinstance(e, PermissionError) or "permission denied" in str(e).lower():
+                if not is_admin():
+                    return False, permission_hint()
             return False, str(e)
 
     def authenticate(self, username, password):

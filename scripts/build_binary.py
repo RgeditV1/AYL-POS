@@ -60,6 +60,7 @@ def main():
             "--windows-product-version=0.9.0",
             "--windows-file-version=20260407",
             "--windows-copyright=Copyright (c) 2026 AYL-Software",
+            "--windows-uac-admin",
             "--windows-icon-from-ico=src/logo.ico",
         ])
     
