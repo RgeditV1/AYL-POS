@@ -8,14 +8,13 @@ PROJECT_ROOT = os.path.dirname(SRC_DIR)
 
 # Data directory in root (override on Windows)
 if platform.system() == "Windows":
-    appdata = os.getenv("APPDATA")
     localappdata = os.getenv("LOCALAPPDATA")
-    DATA_DIR = os.path.join(appdata, "AYL-POS", "data") if appdata else os.path.join(PROJECT_ROOT, "data")
-    BACKUP_DIR = (
-        os.path.join(localappdata, "AYL-POS", "backups")
-        if localappdata
-        else os.path.join(PROJECT_ROOT, "backups")
-    )
+    if localappdata:
+        DATA_DIR = os.path.join(localappdata, "AYL-POS", "data")
+        BACKUP_DIR = os.path.join(localappdata, "AYL-POS", "backups")
+    else:
+        DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+        BACKUP_DIR = os.path.join(PROJECT_ROOT, "backups")
 else:
     DATA_DIR = os.path.join(PROJECT_ROOT, "data")
     BACKUP_DIR = os.path.join(PROJECT_ROOT, "backups")

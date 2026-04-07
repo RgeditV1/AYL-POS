@@ -58,10 +58,11 @@ def main():
             "--windows-product-name=AYL-POS",
             "--windows-file-description=Sistema de Punto de Venta",
             "--windows-product-version=0.9.0",
-            "--windows-file-version=20260407",
+            "--windows-file-version=2026.4.7.0",
             "--windows-copyright=Copyright (c) 2026 AYL-Software",
-            "--windows-uac-admin",
             "--windows-icon-from-ico=src/logo.ico",
+            "--plugin-enable=pywin32",
+            "--include-module=win32print",
         ])
     
     elif es_linux:
@@ -76,7 +77,7 @@ def main():
     
     try:
         subprocess.run(cmd, check=True)
-        print(f"\n[SUCCESS] Binario AYL-POS creado en 'dist/AYL-POS.dist/' (o .exe)")
+        print(f"\n[SUCCESS] Binario AYL-POS creado en 'dist/AYL-POS.exe' (Windows) o 'dist/AYL-POS.bin' (Linux)")
     except subprocess.CalledProcessError as exc:
         print(f"\n[ERROR] Falló el build en {sistema}: {exc}")
         sys.exit(exc.returncode)
