@@ -1,9 +1,9 @@
 import csv
-import fcntl
 import json
 import os
 from datetime import datetime, date
 from src.core.config import SALES_CSV, CASH_FLOW_CSV, TICKETS_CSV
+from src.utils.file_lock import flock, LOCK_SH, LOCK_EX, LOCK_UN
 
 class SalesManager:
     """Manages sale entries and cash flow records in CSV format."""
@@ -38,7 +38,7 @@ class SalesManager:
         timestamp = timestamp or datetime.now().isoformat()
         try:
             with open(self.sales_file, "a", newline="", encoding="utf-8") as f:
-                fcntl.flock(f, fcntl.LOCK_EX)
+                flock(f, LOCK_EX)
                 try:
                     writer = csv.writer(f)
                     for barcode, item in items.items():
@@ -55,7 +55,7 @@ class SalesManager:
                         ])
                     return True, "Venta registrada exitosamente."
                 finally:
-                    fcntl.flock(f, fcntl.LOCK_UN)
+                    flock(f, LOCK_UN)
         except Exception as e:
             return False, f"Error al registrar venta: {e}"
 
@@ -69,7 +69,7 @@ class SalesManager:
         timestamp = timestamp or datetime.now().isoformat()
         try:
             with open(TICKETS_CSV, "a", newline="", encoding="utf-8") as f:
-                fcntl.flock(f, fcntl.LOCK_EX)
+                flock(f, LOCK_EX)
                 try:
                     writer = csv.writer(f)
                     writer.writerow([
@@ -82,7 +82,7 @@ class SalesManager:
                     ])
                     return True, "Ticket guardado."
                 finally:
-                    fcntl.flock(f, fcntl.LOCK_UN)
+                    flock(f, LOCK_UN)
         except Exception as e:
             return False, f"Error al guardar ticket: {e}"
 
@@ -90,7 +90,7 @@ class SalesManager:
         tickets = []
         try:
             with open(TICKETS_CSV, "r", encoding="utf-8") as f:
-                fcntl.flock(f, fcntl.LOCK_SH)
+                flock(f, LOCK_SH)
                 try:
                     reader = csv.DictReader(f)
                     for row in reader:
@@ -98,7 +98,7 @@ class SalesManager:
                         if dt == target_date:
                             tickets.append(row)
                 finally:
-                    fcntl.flock(f, fcntl.LOCK_UN)
+                    flock(f, LOCK_UN)
         except FileNotFoundError:
             pass
         return tickets
@@ -106,14 +106,14 @@ class SalesManager:
     def get_ticket(self, ticket_id: str):
         try:
             with open(TICKETS_CSV, "r", encoding="utf-8") as f:
-                fcntl.flock(f, fcntl.LOCK_SH)
+                flock(f, LOCK_SH)
                 try:
                     reader = csv.DictReader(f)
                     for row in reader:
                         if row["ticket_id"] == ticket_id:
                             return row
                 finally:
-                    fcntl.flock(f, fcntl.LOCK_UN)
+                    flock(f, LOCK_UN)
         except FileNotFoundError:
             return None
         return None
@@ -121,11 +121,11 @@ class SalesManager:
     def cancel_ticket(self, ticket_id: str):
         try:
             with open(TICKETS_CSV, "r", encoding="utf-8") as f:
-                fcntl.flock(f, fcntl.LOCK_SH)
+                flock(f, LOCK_SH)
                 try:
                     rows = list(csv.DictReader(f))
                 finally:
-                    fcntl.flock(f, fcntl.LOCK_UN)
+                    flock(f, LOCK_UN)
         except FileNotFoundError:
             return False, "No hay tickets registrados."
 
@@ -150,7 +150,7 @@ class SalesManager:
         # Rewrite file with updated status
         try:
             with open(TICKETS_CSV, "w", newline="", encoding="utf-8") as f:
-                fcntl.flock(f, fcntl.LOCK_EX)
+                flock(f, LOCK_EX)
                 try:
                     writer = csv.DictWriter(
                         f,
@@ -159,7 +159,7 @@ class SalesManager:
                     writer.writeheader()
                     writer.writerows(rows)
                 finally:
-                    fcntl.flock(f, fcntl.LOCK_UN)
+                    flock(f, LOCK_UN)
         except Exception as e:
             return False, f"No se pudo cancelar el ticket: {e}"
 
@@ -170,13 +170,13 @@ class SalesManager:
         timestamp = datetime.now().isoformat()
         try:
             with open(self.cash_flow_file, "a", newline="", encoding="utf-8") as f:
-                fcntl.flock(f, fcntl.LOCK_EX)
+                flock(f, LOCK_EX)
                 try:
                     writer = csv.writer(f)
                     writer.writerow([timestamp, transaction_type, amount, concept])
                     return True, "Movimiento de caja registrado."
                 finally:
-                    fcntl.flock(f, fcntl.LOCK_UN)
+                    flock(f, LOCK_UN)
         except Exception as e:
             return False, f"Error al registrar flujo de caja: {e}"
 
@@ -196,7 +196,7 @@ class SalesManager:
         # Process sales
         try:
             with open(self.sales_file, mode="r", encoding="utf-8") as f:
-                fcntl.flock(f, fcntl.LOCK_SH)
+                flock(f, LOCK_SH)
                 try:
                     reader = csv.DictReader(f)
                     for row in reader:
@@ -204,14 +204,14 @@ class SalesManager:
                         if start_date <= dt <= end_date:
                             totals["sales"] += float(row["total"])
                 finally:
-                    fcntl.flock(f, fcntl.LOCK_UN)
+                    flock(f, LOCK_UN)
         except FileNotFoundError:
             pass
 
         # Process cash flow entries/exits
         try:
             with open(self.cash_flow_file, mode="r", encoding="utf-8") as f:
-                fcntl.flock(f, fcntl.LOCK_SH)
+                flock(f, LOCK_SH)
                 try:
                     reader = csv.DictReader(f)
                     for row in reader:
@@ -223,7 +223,7 @@ class SalesManager:
                             elif row["tipo"] == "Salida":
                                 totals["exits"] += amount
                 finally:
-                    fcntl.flock(f, fcntl.LOCK_UN)
+                    flock(f, LOCK_UN)
         except FileNotFoundError:
             pass
 

@@ -1,7 +1,7 @@
 import csv
-import fcntl
 import os
 from src.core.config import PRODUCTS_CSV
+from src.utils.file_lock import flock, LOCK_SH, LOCK_EX, LOCK_UN
 
 class InventoryManager:
     """Manages product catalog and inventory stock in CSV format."""
@@ -28,7 +28,7 @@ class InventoryManager:
         try:
             with open(self.products_file, mode="r", encoding="utf-8") as file:
                 # Shared lock for reading
-                fcntl.flock(file, fcntl.LOCK_SH)
+                flock(file, LOCK_SH)
                 try:
                     reader = csv.DictReader(file)
                     for row in reader:
@@ -42,7 +42,7 @@ class InventoryManager:
                         }
                         products.append(product)
                 finally:
-                    fcntl.flock(file, fcntl.LOCK_UN)
+                    flock(file, LOCK_UN)
         except Exception:
             pass
         return products
@@ -51,7 +51,7 @@ class InventoryManager:
         """Overwrite CSV with the given list of product dictionaries."""
         try:
             with open(self.products_file, "w", newline="", encoding="utf-8") as f:
-                fcntl.flock(f, fcntl.LOCK_EX)
+                flock(f, LOCK_EX)
                 try:
                     writer = csv.DictWriter(f, fieldnames=["codigo", "nombre", "precio", "cantidad", "costo"])
                     writer.writeheader()
@@ -64,7 +64,7 @@ class InventoryManager:
                             "costo":    p["costo"]
                         })
                 finally:
-                    fcntl.flock(f, fcntl.LOCK_UN)
+                    flock(f, LOCK_UN)
             return True, "Catálogo guardado exitosamente."
         except Exception as e:
             return False, f"Error al guardar productos: {e}"
@@ -76,7 +76,7 @@ class InventoryManager:
         """
         try:
             with open(self.products_file, mode="r+", newline="", encoding="utf-8") as file:
-                fcntl.flock(file, fcntl.LOCK_EX)
+                flock(file, LOCK_EX)
                 try:
                     reader = csv.reader(file)
                     lines = list(reader)
@@ -113,7 +113,7 @@ class InventoryManager:
                         return True, "Inventario actualizado."
                     return True, "No se requirieron cambios."
                 finally:
-                    fcntl.flock(file, fcntl.LOCK_UN)
+                    flock(file, LOCK_UN)
         except Exception as e:
             return False, str(e)
 

@@ -3,7 +3,7 @@ import sys
 
 
 def is_frozen_app():
-    return bool(getattr(sys, "frozen", False))
+    return bool(getattr(sys, "frozen", False) or getattr(sys, "__compiled__", False))
 
 
 def get_resource_root():
