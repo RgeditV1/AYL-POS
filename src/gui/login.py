@@ -90,7 +90,7 @@ class LoginSystem(ft.Container):
                 ),
                 padding=40,
                 width=MAX_LOBBY_WIDTH,
-                # Remove fixed height to allow adaptation
+                # Fixed width with auto height for better adaptation
             ),
             elevation=10,
         )

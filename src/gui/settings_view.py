@@ -7,7 +7,7 @@ from src.core.settings import SettingsManager
 from src.core.auth import UserManager
 from src.core.printer import PrinterDetector, PrinterManager
 from src.core.config import (DATA_DIR, BACKUP_DIR, PRODUCTS_CSV,
-                            SALES_CSV, CASH_FLOW_CSV, SETTINGS_JSON)
+                            SALES_CSV, CASH_FLOW_CSV, SETTINGS_JSON, DB_PATH)
 from src.platform.admin import is_admin, permission_hint
 
 
@@ -633,10 +633,8 @@ class SettingsView(ft.Container):
 
     def _build_data_tab(self):
         files_info = [
-            ("productos.csv", "Catálogo de productos", PRODUCTS_CSV),
-            ("ventas.csv", "Historial de ventas", SALES_CSV),
-            ("flujo_caja.csv", "Flujo de caja", CASH_FLOW_CSV),
-            ("settings.json", "Configuración", SETTINGS_JSON),
+            ("ayl_pos.db", "Base de datos relacional (Usuarios, Inventario, Ventas)", DB_PATH),
+            ("settings.json", "Configuración de la tienda", SETTINGS_JSON),
         ]
 
         file_rows = []
@@ -719,7 +717,7 @@ class SettingsView(ft.Container):
         )
 
     def _export_data(self, e=None):
-        files_to_export = [PRODUCTS_CSV, SALES_CSV, CASH_FLOW_CSV, SETTINGS_JSON]
+        files_to_export = [DB_PATH, SETTINGS_JSON]
         export_path = os.path.join(BACKUP_DIR, "backup_data_pos.zip")
         try:
             with zipfile.ZipFile(export_path, "w") as zipf:

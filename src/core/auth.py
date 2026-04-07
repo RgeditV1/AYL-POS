@@ -1,22 +1,20 @@
-import base64
 import hashlib
 import hmac
 import os
-from src.core.config import CREDENTIALS_FILE
-from src.platform.admin import is_admin, permission_hint
+from src.core.database import get_db_manager
 
 class UserManager:
-    """Manages user authentication and authorization with secure hashing."""
+    """Manages user authentication and authorization using SQLite."""
 
-    def __init__(self, credentials_file=None):
-        self.credentials_file = credentials_file or CREDENTIALS_FILE
-        self.ensure_credentials_file()
+    def __init__(self):
+        self.db = get_db_manager()
+        self.ensure_admin_exists()
 
-    def ensure_credentials_file(self):
-        """Ensure the credentials file exists."""
-        if not os.path.exists(self.credentials_file):
-            # Create default admin user
-            self.create_user("admin", "admin", "admin", save_now=True)
+    def ensure_admin_exists(self):
+        """Ensure at least one admin exists in the database."""
+        users = self.load_users()
+        if not users:
+            self.create_user("admin", "admin", "admin")
 
     def hash_password(self, password, salt=None):
         """Hash a password using pbkdf2_hmac."""
@@ -33,13 +31,9 @@ class UserManager:
     def verify_password(self, stored_password, provided_password):
         """Verify a stored password against a provided password."""
         try:
-            # Check for legacy base64 passwords
             if "$" not in stored_password:
-                try:
-                    decoded = base64.b64decode(stored_password).decode("utf-8")
-                    return decoded == provided_password
-                except Exception:
-                    return False
+                # Legacy support could be added here if needed during migration
+                return False
             
             salt_hex, hash_hex = stored_password.split("$")
             salt = bytes.fromhex(salt_hex)
@@ -48,95 +42,88 @@ class UserManager:
         except Exception:
             return False
 
-    def create_user(self, username, password, role="cajero", save_now=True):
-        """Create a new user with hashed password."""
-        users = self.load_users()
-        if username in users:
-            return False, "El usuario ya existe."
-            
+    def create_user(self, username, password, role="cajero"):
+        """Create a new user in the database."""
         if role not in ["admin", "cajero"]:
-            return False, "Rol inválido. Debe ser 'admin' o 'cajero'."
+            return False, "Rol inválido."
 
-        hashed = self.hash_password(password)
-        users[username] = {"password": hashed, "role": role}
-        
-        if save_now:
-            self.save_users(users)
-        return True, "Usuario creado exitosamente."
-
-    def load_users(self):
-        """Load all users from the credentials file."""
-        users = {}
-        if not os.path.exists(self.credentials_file):
-            return users
-
+        password_hash = self.hash_password(password)
+        conn = self.db.get_connection()
         try:
-            with open(self.credentials_file, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    parts = line.split(":")
-                    if len(parts) >= 3:
-                        username, password_data, role = parts[0], parts[1], parts[2]
-                        users[username] = {
-                            "password": password_data,
-                            "role": role,
-                        }
-        except Exception:
-            pass
-        return users
-
-    def save_users(self, users):
-        """Save all users to the credentials file."""
-        try:
-            with open(self.credentials_file, "w", encoding="utf-8") as f:
-                for username, data in users.items():
-                    f.write(f"{username}:{data['password']}:{data['role']}\n")
-            return True, "Usuarios guardados."
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+                (username, password_hash, role)
+            )
+            conn.commit()
+            return True, "Usuario creado exitosamente."
         except Exception as e:
-            if isinstance(e, PermissionError) or "permission denied" in str(e).lower():
-                if not is_admin():
-                    return False, permission_hint()
+            if "UNIQUE constraint failed" in str(e):
+                return False, "El usuario ya existe."
             return False, str(e)
+        finally:
+            conn.close()
 
     def authenticate(self, username, password):
         """Authenticate a user and return their role if successful."""
-        users = self.load_users()
-        if username in users:
-            stored_password = users[username]["password"]
-            if self.verify_password(stored_password, password):
-                # Auto-migrate legacy passwords
-                if "$" not in stored_password:
-                    new_hash = self.hash_password(password)
-                    users[username]["password"] = new_hash
-                    self.save_users(users)
-                return users[username]["role"]
+        conn = self.db.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT password_hash, role FROM users WHERE username = ?", (username,))
+            row = cursor.fetchone()
+            if row and self.verify_password(row["password_hash"], password):
+                return row["role"]
+        except Exception:
+            pass
+        finally:
+            conn.close()
         return None
 
-    def list_users(self):
-        """Return a dict of all users and roles (matching legacy expectation)."""
-        return self.load_users()
+    def load_users(self):
+        """Return a dict of all users and roles."""
+        conn = self.db.get_connection()
+        users = {}
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT username, role FROM users")
+            for row in cursor.fetchall():
+                users[row["username"]] = {"role": row["role"]}
+        except Exception:
+            pass
+        finally:
+            conn.close()
+        return users
 
     def delete_user(self, username):
-        """Delete a user."""
-        users = self.load_users()
-        if username not in users:
-            return False, "Usuario no encontrado."
+        """Delete a user from the database."""
+        if username == "admin":
+            # Extra check to avoid deleting the main admin
+            users = self.load_users()
+            admins = [u for u in users if users[u]["role"] == "admin"]
+            if len(admins) <= 1:
+                return False, "No se puede eliminar el último administrador."
 
-        if username == "admin" and len([u for u in users if users[u]["role"] == "admin"]) == 1:
-            return False, "No se puede eliminar el último administrador."
-
-        del users[username]
-        self.save_users(users)
-        return True, "Usuario eliminado exitosamente."
+        conn = self.db.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM users WHERE username = ?", (username,))
+            conn.commit()
+            return True, "Usuario eliminado exitosamente."
+        except Exception as e:
+            return False, str(e)
+        finally:
+            conn.close()
 
     def change_password(self, username, new_password):
-        """Change user password."""
-        users = self.load_users()
-        if username not in users:
-            return False, "Usuario no encontrado."
-
-        users[username]["password"] = self.hash_password(new_password)
-        self.save_users(users)
-        return True, "Contraseña actualizada exitosamente."
+        """Update a user's password."""
+        new_hash = self.hash_password(new_password)
+        conn = self.db.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE users SET password_hash = ? WHERE username = ?", (new_hash, username))
+            conn.commit()
+            return True, "Contraseña actualizada exitosamente."
+        except Exception as e:
+            return False, str(e)
+        finally:
+            conn.close()

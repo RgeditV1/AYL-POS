@@ -61,7 +61,7 @@ def main():
             "--windows-file-version=2026.4.7.0",
             "--windows-copyright=Copyright (c) 2026 AYL-Software",
             "--windows-icon-from-ico=src/logo.ico",
-            "--plugin-enable=pywin32",
+            "--enable-plugin=pywin32",
             "--include-module=win32print",
         ])
     
