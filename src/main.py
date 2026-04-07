@@ -22,7 +22,7 @@ from src.utils.resources import get_resource_path
 class AYL_Application:
     def __init__(self, page: ft.Page):
         icon_name = "logo.ico" if platform.system() == "Windows" else "logo.png"
-        icon_path = get_resource_path(icon_name)
+        icon_path = get_resource_path("src", icon_name)
         self.page = page
         self.page.window.icon = icon_path
         self.page.title = "Punto de Venta A&L"

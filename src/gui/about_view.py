@@ -62,7 +62,7 @@ class AboutView(ft.Container):
         )
 
     def _build_body(self):
-        logo_path = get_resource_path("logo.png")
+        logo_path = get_resource_path("src", "logo.png")
 
         return ft.Column(
             [

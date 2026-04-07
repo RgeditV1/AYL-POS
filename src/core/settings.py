@@ -1,7 +1,7 @@
 import json
 import os
 from src.core.config import SETTINGS_JSON
-from src.platform.admin import is_admin, permission_hint
+from src.app_platform.admin import is_admin, permission_hint
 
 class SettingsManager:
     """Manages store settings and configuration."""

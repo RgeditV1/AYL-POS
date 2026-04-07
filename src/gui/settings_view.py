@@ -8,7 +8,7 @@ from src.core.auth import UserManager
 from src.core.printer import PrinterDetector, PrinterManager
 from src.core.config import (DATA_DIR, BACKUP_DIR, PRODUCTS_CSV,
                             SALES_CSV, CASH_FLOW_CSV, SETTINGS_JSON, DB_PATH)
-from src.platform.admin import is_admin, permission_hint
+from src.app_platform.admin import is_admin, permission_hint
 
 
 class SettingsView(ft.Container):
