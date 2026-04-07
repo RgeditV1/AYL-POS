@@ -44,6 +44,7 @@ def main():
         "--follow-imports",
         "--include-data-dir=data=data",
         "--include-data-files=src/logo.png=src/logo.png",
+        "--include-data-files=src/logo.ico=src/logo.ico",
         "--include-package-data=escpos",
         "--include-package-data=flet",
         "src/main.py"
@@ -61,7 +62,6 @@ def main():
             "--windows-file-version=2026.4.7.0",
             "--windows-copyright=Copyright (c) 2026 AYL-Software",
             "--windows-icon-from-ico=src/logo.ico",
-            "--enable-plugin=pywin32",
             "--include-module=win32print",
         ])
     
