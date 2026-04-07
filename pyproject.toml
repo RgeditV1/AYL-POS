@@ -6,7 +6,6 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "flet>=0.83.0",
-    "pyinstaller>=6.19.0",
     "pysub>=0.2",
     "python-escpos>=3.1",
     "tkcalendar>=1.6.1",

@@ -1,5 +1,5 @@
-import os
 import flet as ft
+from src.utils.resources import get_resource_path
 
 
 class AboutView(ft.Container):
@@ -62,8 +62,7 @@ class AboutView(ft.Container):
         )
 
     def _build_body(self):
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        logo_path = os.path.join(project_root, "logo.png")
+        logo_path = get_resource_path("logo.png")
 
         return ft.Column(
             [

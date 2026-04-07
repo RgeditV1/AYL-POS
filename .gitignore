@@ -6,3 +6,6 @@ data/*.csv
 data/settings.json
 backups/*
 .codex
+build/*
+dist/*
+nuitka-crash-report.xml

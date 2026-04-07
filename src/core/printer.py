@@ -5,6 +5,7 @@ import tempfile
 
 import usb.core
 import usb.util
+from src.utils.resources import is_frozen_app
 
 try:
     from escpos.printer import Usb, Win32Raw
@@ -159,30 +160,44 @@ class PrinterManager:
             f.write(text)
             tmp_path = f.name
 
-        cmd = [
-            "sudo",
-            "-S",
-            "-k",
-            sys.executable,
-            "-m",
-            "src.core.printer",
-            "--print-file",
-            tmp_path,
-            "--vid",
-            str(vid),
-            "--pid",
-            str(pid),
-        ]
+        cmd = ["sudo", "-S", "-k", sys.executable]
+        if is_frozen_app():
+            cmd.extend(
+                [
+                    "--print-file",
+                    tmp_path,
+                    "--vid",
+                    str(vid),
+                    "--pid",
+                    str(pid),
+                ]
+            )
+        else:
+            cmd.extend(
+                [
+                    "-m",
+                    "src.core.printer",
+                    "--print-file",
+                    tmp_path,
+                    "--vid",
+                    str(vid),
+                    "--pid",
+                    str(pid),
+                ]
+            )
         name = self.settings.get("printer_name")
         if name:
             cmd.extend(["--win32-name", name])
 
-        proc = subprocess.run(
-            cmd,
-            input=(sudo_password + "\n").encode(),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
+        try:
+            proc = subprocess.run(
+                cmd,
+                input=(sudo_password + "\n").encode(),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+        except FileNotFoundError:
+            return False, "No se encontró el comando sudo en este sistema."
 
         if proc.returncode != 0:
             return False, proc.stderr.decode().strip() or "No se pudo imprimir con sudo."

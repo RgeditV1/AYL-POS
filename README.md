@@ -37,6 +37,17 @@ Para otras dependencias, consulte la sección de **Instalación de Dependencias*
 
 **Importante:** Esta aplicación NO es compatible con Windows.
 
+## Dependencias (Python)
+
+Estas son las dependencias declaradas en `pyproject.toml`:
+
+- `flet`
+- `nuitka`
+- `pyusb`
+- `patchef`
+- `python-escpos`
+- `tkcalendar`
+
 ## Características
 
 ### Módulos Principales
@@ -160,5 +171,5 @@ Este proyecto está bajo la Licencia MIT y Licencia Privada. Para más detalles,
 
 ---
 
-**Versión:** 2.1.0  
-**Última Actualización:** Marzo 2026
+**Versión:** 1.0  
+**Última Actualización:** abril 2026

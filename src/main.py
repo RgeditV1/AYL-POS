@@ -15,11 +15,12 @@ from src.gui.reports_view import ReportsView
 from src.gui.inventory_view import InventoryView
 from src.gui.settings_view import SettingsView
 from src.gui.theme import ThemeManager
+from src.utils.resources import get_resource_path
 
 
 class AYL_Application:
     def __init__(self, page: ft.Page):
-        icon_path = os.path.join(project_root, "logo.png")
+        icon_path = get_resource_path("logo.png")
         self.page = page
         self.page.window.icon = icon_path
         self.page.title = "Punto de Venta A&L"
