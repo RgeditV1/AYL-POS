@@ -1,7 +1,7 @@
 import csv
 import os
 from src.core.config import PRODUCTS_CSV
-from src.utils.file_lock import flock, LOCK_SH, LOCK_EX, LOCK_UN
+from src.platform.file_lock import flock, LOCK_SH, LOCK_EX, LOCK_UN
 
 class InventoryManager:
     """Manages product catalog and inventory stock in CSV format."""

@@ -2,7 +2,7 @@ import platform
 import subprocess
 import sys
 import tempfile
-
+import os
 import usb.core
 import usb.util
 from src.utils.resources import is_frozen_app
@@ -160,8 +160,13 @@ class PrinterManager:
             f.write(text)
             tmp_path = f.name
 
+        exe_path = os.path.realpath(sys.argv[0])
+        if not os.path.isabs(exe_path):
+            exe_path = os.path.abspath(exe_path)
+
         cmd = ["sudo", "-S", "-k", sys.executable]
         if is_frozen_app():
+            cmd = ["sudo", "-S", "-k", exe_path]
             cmd.extend(
                 [
                     "--print-file",

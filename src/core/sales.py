@@ -3,7 +3,7 @@ import json
 import os
 from datetime import datetime, date
 from src.core.config import SALES_CSV, CASH_FLOW_CSV, TICKETS_CSV
-from src.utils.file_lock import flock, LOCK_SH, LOCK_EX, LOCK_UN
+from src.platform.file_lock import flock, LOCK_SH, LOCK_EX, LOCK_UN
 
 class SalesManager:
     """Manages sale entries and cash flow records in CSV format."""
