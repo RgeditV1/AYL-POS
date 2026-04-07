@@ -14,4 +14,4 @@ dependencies = [
 ]
 
 [tool.setuptools]
-packages = ["src", "src.core", "src.gui", "src.legacy"]
+packages = ["src", "src.core", "src.gui"]

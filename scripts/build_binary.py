@@ -38,7 +38,7 @@ def main():
     # 4. Configuración Base del Comando
     cmd = [
         py, "-m", "nuitka",
-        "--onefile",
+        "--standalone", # Cambiado de --onefile para depuración más fácil
         "--output-dir=dist",
         "--output-filename=AYL-POS",
         "--follow-imports",
@@ -54,7 +54,7 @@ def main():
     if es_windows:
         print("[!] Aplicando optimizaciones para Windows...")
         cmd.extend([
-            "--windows-console-mode=disable",
+            # "--windows-console-mode=disable", # Deshabilitado para ver tracebacks en Windows
             "--windows-company-name=AYL-Software",
             "--windows-product-name=AYL-POS",
             "--windows-file-description=Sistema de Punto de Venta",

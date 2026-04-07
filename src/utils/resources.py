@@ -7,9 +7,9 @@ def is_frozen_app():
 
 
 def get_resource_root():
-    if is_frozen_app():
-        return os.path.dirname(sys.executable)
-    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # En Nuitka, os.path.abspath(__file__) apunta al interior del bundle extraído.
+    # src/utils/resources.py -> src -> proyecto_root
+    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def get_resource_path(*parts):
