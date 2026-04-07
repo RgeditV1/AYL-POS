@@ -2,8 +2,10 @@ import flet as ft
 from src.core.auth import UserManager
 
 
-LOBBY_WIDTH = 430
-LOBBY_HEIGHT = 540
+
+LOBBY_WIDTH = 450
+LOBBY_HEIGHT = 550
+MAX_LOBBY_WIDTH = 450
 
 
 class LoginSystem(ft.Container):
@@ -34,7 +36,6 @@ class LoginSystem(ft.Container):
 
         self.login_button = ft.ElevatedButton(
             content=ft.Text("Entrar", size=16, weight=ft.FontWeight.BOLD),
-            width=200,
             height=50,
             style=ft.ButtonStyle(
                 shape=ft.RoundedRectangleBorder(radius=10),
@@ -60,23 +61,36 @@ class LoginSystem(ft.Container):
             content=ft.Container(
                 content=ft.Column(
                     [
-                        ft.Icon(ft.Icons.LOCK, size=50, color=ft.Colors.PRIMARY),
-                        ft.Text("AYL POS", size=24, weight=ft.FontWeight.BOLD),
-                        ft.Text("Acceso al Sistema", size=14, color=ft.Colors.SECONDARY),
+                        ft.Container(
+                            content=ft.Column(
+                                [
+                                    ft.Icon(ft.Icons.LOCK, size=50, color=ft.Colors.PRIMARY),
+                                    ft.Text("AYL POS", size=24, weight=ft.FontWeight.BOLD),
+                                    ft.Text("Acceso al Sistema", size=14, color=ft.Colors.SECONDARY),
+                                ],
+                                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                                spacing=5,
+                            ),
+                            alignment=ft.Alignment.CENTER,
+                        ),
                         ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
                         self.username_field,
                         self.password_field,
                         self.error_text,
                         ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
                         self.login_button,
-                        self.about_button,
+                        ft.Container(
+                            content=self.about_button,
+                            alignment=ft.Alignment.CENTER,
+                        ),
                     ],
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
                     spacing=15,
+                    tight=True,
                 ),
                 padding=40,
-                width=LOBBY_WIDTH,
-                height=LOBBY_HEIGHT,
+                width=MAX_LOBBY_WIDTH,
+                # Remove fixed height to allow adaptation
             ),
             elevation=10,
         )

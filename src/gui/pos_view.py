@@ -227,7 +227,7 @@ class POSView(ft.Container):
     def _build_right_panel(self):
         pay_button = ft.FilledButton(
             content=ft.Text("F1 · COBRAR", size=17, weight=ft.FontWeight.BOLD),
-            expand=True,
+            height=60,
             on_click=self._show_payment_dialog,
             style=ft.ButtonStyle(
                 shape=ft.RoundedRectangleBorder(radius=10),
@@ -337,6 +337,7 @@ class POSView(ft.Container):
                     ),
                 ],
                 spacing=8,
+                horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
             ),
             width=340,
             padding=20,

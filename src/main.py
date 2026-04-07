@@ -40,7 +40,7 @@ class AYL_Application:
         """Set window size for the login screen."""
         self.page.window.width = LOBBY_WIDTH
         self.page.window.height = LOBBY_HEIGHT
-        self.page.window.resizable = False
+        self.page.window.resizable = True
         self.page.window.full_screen = False
         self.page.vertical_alignment = ft.MainAxisAlignment.CENTER
         self.page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
