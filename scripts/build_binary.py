@@ -55,12 +55,12 @@ def main():
         print("[!] Aplicando optimizaciones para Windows...")
         cmd.extend([
             # "--windows-console-mode=disable", # Deshabilitado para ver tracebacks en Windows
-            "--windows-company-name=AYL-Software",
-            "--windows-product-name=AYL-POS",
-            "--windows-file-description=Sistema de Punto de Venta",
-            "--windows-product-version=0.9.0",
-            "--windows-file-version=2026.4.7.0",
-            "--windows-copyright=Copyright (c) 2026 AYL-Software",
+            "--company-name=AYL-Software",
+            "--product-name=AYL-POS",
+            "--file-description=Sistema de Punto de Venta",
+            "--product-version=0.9.0",
+            "--file-version=2026.4.7.0",
+            "--copyright=Copyright (c) 2026 AYL-Software",
             "--windows-icon-from-ico=src/logo.ico",
             "--include-module=win32print",
         ])

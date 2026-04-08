@@ -30,6 +30,7 @@ class AboutView(ft.Container):
             ],
             expand=True,
             spacing=0,
+            scroll=ft.ScrollMode.ADAPTIVE,
         )
 
     def _build_header(self):

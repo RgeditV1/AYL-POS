@@ -1,0 +1,50 @@
+name: Windows Build Pipeline
+
+on:
+  push:
+    branches: [ "main", "dev" ]
+  pull_request:
+    branches: [ "main", "dev" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Windows Executable
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Sync Dependencies
+        run: |
+          uv sync --all-extras
+          # Asegurar que Nuitka esté disponible en el entorno de uv
+          uv pip install nuitka zstandard ordered-set
+
+      - name: Build Binary with Nuitka
+        run: |
+          # El script build_binary.py ya detectará Windows y aplicará los flags
+          # Usamos uv run para ejecutarlo dentro del entorno virtual sincronizado
+          uv run python scripts/build_binary.py
+        shell: pwsh
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AYL-POS-Windows-Build
+          path: |
+            dist/AYL-POS.dist
+            dist/*.exe
+          if-no-files-found: error
