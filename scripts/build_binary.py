@@ -42,6 +42,7 @@ def main():
         "--output-dir=dist",
         "--output-filename=AYL-POS",
         "--follow-imports",
+        "--assume-yes-for-downloads", # Evita prompts en entornos CI/CD
         "--include-data-dir=data=data",
         "--include-data-files=src/logo.png=src/logo.png",
         "--include-data-files=src/logo.ico=src/logo.ico",
