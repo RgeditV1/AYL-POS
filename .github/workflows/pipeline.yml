@@ -79,4 +79,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ayl-pos-${{ matrix.distro }}
-          path: dist/AYL-POS.dist
+          path: |
+            dist/AYL-POS.bin
+            dist/AYL-POS.exe
+          if-no-files-found: warn

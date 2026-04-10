@@ -36,14 +36,14 @@ def main():
     print(f"[+] Intérprete de build: {py}")
 
     # 4. Configuración Base del Comando
+    exe_name = "AYL-POS-debug" if "--enable-console" in sys.argv else "AYL-POS"
     cmd = [
         py, "-m", "nuitka",
-        "--standalone", # Cambiado de --onefile para depuración más fácil
+        "--standalone", # Cambiado de --onefile a --standalone
         "--output-dir=dist",
-        "--output-filename=AYL-POS",
+        f"--output-filename={exe_name}",
         "--follow-imports",
         "--assume-yes-for-downloads", # Evita prompts en entornos CI/CD
-        "--include-data-dir=data=data",
         "--include-data-files=src/logo.png=src/logo.png",
         "--include-data-files=src/logo.ico=src/logo.ico",
         "--include-package-data=escpos",
@@ -54,17 +54,22 @@ def main():
     # 5. Añadir Flags Específicos por Sistema Operativo
     if es_windows:
         print("[!] Aplicando optimizaciones para Windows...")
-        cmd.extend([
-            # "--windows-console-mode=disable", # Deshabilitado para ver tracebacks en Windows
+        windows_flags = [
             "--company-name=AYL-Software",
             "--product-name=AYL-POS",
             "--file-description=Sistema de Punto de Venta",
-            "--product-version=0.9.0",
-            "--file-version=2026.4.7.0",
+            "--product-version=1.0.0",
+            "--file-version=2026.04.10.0",
             "--copyright=Copyright (c) 2026 AYL-Software",
             "--windows-icon-from-ico=src/logo.ico",
             "--include-module=win32print",
-        ])
+        ]
+        if "--enable-console" in sys.argv:
+            windows_flags.append("--windows-console-mode=force")
+        else:
+            windows_flags.append("--windows-console-mode=disable")
+            
+        cmd.extend(windows_flags)
     
     elif es_linux:
         print("[!] Aplicando configuraciones para Linux (Arch/Otros)...")

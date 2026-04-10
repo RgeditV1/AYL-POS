@@ -3,6 +3,7 @@ name: Windows Build Pipeline
 on:
   push:
     branches: ["main", "dev"]
+    tags: ["v*"]
   pull_request:
     branches: ["main", "dev"]
   workflow_dispatch:
@@ -33,18 +34,36 @@ jobs:
           # Asegurar que Nuitka esté disponible en el entorno de uv
           uv pip install nuitka zstandard ordered-set
 
-      - name: Build Binary with Nuitka
+      - name: Build Standalone Binary (Production)
         run: |
-          # El script build_binary.py ya detectará Windows y aplicará los flags
-          # Usamos uv run para ejecutarlo dentro del entorno virtual sincronizado
           uv run python scripts/build_binary.py
+        shell: pwsh
+
+      - name: Build Standalone Binary (Debug/Console)
+        run: |
+          uv run python scripts/build_binary.py --enable-console
+        shell: pwsh
+
+      - name: Package Standalone for Release
+        run: |
+          if (Test-Path "data") { Copy-Item -Path data -Destination dist/main.dist/data -Recurse }
+          Compress-Archive -Path dist/main.dist/* -DestinationPath dist/AYL-POS-Windows.zip
         shell: pwsh
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AYL-POS-Windows-Build
+          name: AYL-POS-Windows-Standalone
           path: |
-            dist/main.dist
-            dist/*.exe
+            dist/main.dist/
+            README.md
           if-no-files-found: error
+
+      - name: Release Artifacts
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/AYL-POS-Windows.zip
+            README.md
+          generate_release_notes: true
