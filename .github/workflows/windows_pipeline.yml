@@ -39,23 +39,35 @@ jobs:
           uv run python scripts/build_binary.py
         shell: pwsh
 
-      - name: Build Standalone Binary (Debug/Console)
-        run: |
-          uv run python scripts/build_binary.py --enable-console
-        shell: pwsh
-
       - name: Package Standalone for Release
         run: |
           if (Test-Path "data") { Copy-Item -Path data -Destination dist/main.dist/data -Recurse }
           Compress-Archive -Path dist/main.dist/* -DestinationPath dist/AYL-POS-Windows.zip
         shell: pwsh
 
-      - name: Upload Build Artifact
+      - name: Remove Production Executable
+        run: |
+          Remove-Item -Path dist/main.dist/AYL-POS.exe -ErrorAction SilentlyContinue
+        shell: pwsh
+
+      - name: Build Standalone Binary (Debug/Console)
+        run: |
+          uv run python scripts/build_binary.py --enable-console
+        shell: pwsh
+
+      - name: Package Debug Release
+        run: |
+          if (Test-Path "data") { Copy-Item -Path data -Destination dist/main.dist/data -Recurse }
+          Compress-Archive -Path dist/main.dist/* -DestinationPath dist/AYL-POS-Windows-Debug.zip
+        shell: pwsh
+
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: AYL-POS-Windows-Standalone
           path: |
-            dist/main.dist/
+            dist/AYL-POS-Windows.zip
+            dist/AYL-POS-Windows-Debug.zip
             README.md
           if-no-files-found: error
 
@@ -65,5 +77,6 @@ jobs:
         with:
           files: |
             dist/AYL-POS-Windows.zip
+            dist/AYL-POS-Windows-Debug.zip
             README.md
           generate_release_notes: true

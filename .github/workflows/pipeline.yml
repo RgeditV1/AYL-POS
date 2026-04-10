@@ -71,15 +71,26 @@ jobs:
       - name: Lockfile Integrity
         run: uv lock --check
 
-      - name: Build Binary (Nuitka)
+      - name: Build Binary (Production)
         run: |
           uv run python3 scripts/build_binary.py
+
+      - name: Remove Production Executable
+        run: |
+          rm -f dist/main.dist/AYL-POS dist/main.dist/AYL-POS.bin || true
+
+      - name: Build Binary (Debug)
+        run: |
+          uv run python3 scripts/build_binary.py --enable-console
+
+      - name: Bundle Data Directory
+        run: |
+          if [ -d "data" ]; then cp -r data dist/main.dist/; fi
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ayl-pos-${{ matrix.distro }}
           path: |
-            dist/AYL-POS.bin
-            dist/AYL-POS.exe
-          if-no-files-found: warn
+            dist/main.dist/
+            README.md
