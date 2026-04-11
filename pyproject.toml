@@ -5,7 +5,7 @@ description = "Soporte Tecnico A&L Punto De Venta"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "flet>=0.83.0",
+    "flet[all]>=0.83.0",
     "pyusb>=0.2; platform_system!='Windows'",
     "pywin32>=306; platform_system=='Windows'",
     "portalocker>=2.10.0; platform_system=='Windows'",
