@@ -2,6 +2,20 @@ from datetime import datetime
 
 
 DEFAULT_WIDTH = 32
+DEFAULT_PAPER_MM = 58
+WIDTH_BY_PAPER_MM = {
+    58: 32,
+    80: 48,
+}
+
+
+def _get_ticket_width(settings) -> int:
+    paper_mm = settings.get("ticket_paper_mm", DEFAULT_PAPER_MM)
+    try:
+        paper_mm = int(paper_mm)
+    except Exception:
+        paper_mm = DEFAULT_PAPER_MM
+    return WIDTH_BY_PAPER_MM.get(paper_mm, DEFAULT_WIDTH)
 
 
 def _pad_center(text: str, width: int) -> str:
@@ -24,7 +38,7 @@ def format_money(amount: float) -> str:
 
 
 def build_ticket_text(settings, items, total, cashier, ticket_id, cash_received=None, change=None):
-    width = DEFAULT_WIDTH
+    width = _get_ticket_width(settings)
     now = datetime.now()
 
     lines = []
@@ -72,7 +86,7 @@ def build_ticket_text(settings, items, total, cashier, ticket_id, cash_received=
 
 
 def build_report_text(settings, start_date, end_date, totals):
-    width = DEFAULT_WIDTH
+    width = _get_ticket_width(settings)
     lines = []
     business = settings.get("business_name", "")
     if business:

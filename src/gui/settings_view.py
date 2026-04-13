@@ -104,6 +104,18 @@ class SettingsView(ft.Container):
             value=False,
             visible=platform.system() == "Linux",
         )
+        self.ticket_paper_mm = 58
+        self.paper_58_btn = ft.OutlinedButton(
+            content=ft.Text("58mm", size=12),
+            on_click=lambda e: self._set_ticket_paper(58),
+            style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
+        )
+        self.paper_80_btn = ft.OutlinedButton(
+            content=ft.Text("80mm", size=12),
+            on_click=lambda e: self._set_ticket_paper(80),
+            style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
+        )
+        self._update_ticket_paper_buttons()
 
     # ──────────────────────────────────────────────
     # UI Assembly
@@ -245,6 +257,9 @@ class SettingsView(ft.Container):
                     ft.Row([self.f_printer, self.refresh_printers_btn], spacing=10),
                     ft.Row([self.print_test_btn], spacing=10),
                     self.require_sudo_checkbox,
+                    ft.Divider(height=6, color=ft.Colors.TRANSPARENT),
+                    ft.Text("Tamaño de papel", size=14, weight=ft.FontWeight.BOLD),
+                    ft.Row([self.paper_58_btn, self.paper_80_btn], spacing=8),
                     ft.Divider(height=8, color=ft.Colors.TRANSPARENT),
                     ft.Row([save_btn]),
                 ],
@@ -271,6 +286,11 @@ class SettingsView(ft.Container):
             if vid != "" and pid != "":
                 self._loaded_printer_key = f"{vid}:{pid}"
         self.require_sudo_checkbox.value = bool(s.get("require_sudo_print", False))
+        try:
+            self.ticket_paper_mm = int(s.get("ticket_paper_mm", 58))
+        except Exception:
+            self.ticket_paper_mm = 58
+        self._update_ticket_paper_buttons()
         self._refresh_printers()
         try:
             self.f_business.update()
@@ -279,6 +299,8 @@ class SettingsView(ft.Container):
             self.f_cashier.update()
             self.f_printer.update()
             self.require_sudo_checkbox.update()
+            self.paper_58_btn.update()
+            self.paper_80_btn.update()
         except Exception:
             pass
 
@@ -303,6 +325,7 @@ class SettingsView(ft.Container):
             "printer_vid": "" if platform.system() == "Windows" else printer_vid,
             "printer_pid": "" if platform.system() == "Windows" else printer_pid,
             "require_sudo_print": bool(self.require_sudo_checkbox.value),
+            "ticket_paper_mm": int(self.ticket_paper_mm),
         }
         success, message = self.settings_manager.save_settings(settings)
         if success:
@@ -337,6 +360,26 @@ class SettingsView(ft.Container):
             self.f_printer.update()
         except Exception:
             pass
+
+    def _set_ticket_paper(self, mm: int):
+        self.ticket_paper_mm = mm
+        self._update_ticket_paper_buttons()
+        try:
+            self.paper_58_btn.update()
+            self.paper_80_btn.update()
+        except Exception:
+            pass
+
+    def _update_ticket_paper_buttons(self):
+        def style(selected: bool):
+            return ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=8),
+                bgcolor=ft.Colors.PRIMARY if selected else None,
+                color=ft.Colors.WHITE if selected else None,
+            )
+
+        self.paper_58_btn.style = style(self.ticket_paper_mm == 58)
+        self.paper_80_btn.style = style(self.ticket_paper_mm == 80)
 
     # ──────────────────────────────────────────────
     # Tab: Users
@@ -814,18 +857,37 @@ class SettingsView(ft.Container):
         snack.open = True
         self.page.update()
 
+    def _get_runtime_printer_settings(self):
+        settings = dict(self.settings or {})
+        settings["require_sudo_print"] = bool(self.require_sudo_checkbox.value)
+        selected_key = self.f_printer.value or ""
+        printer_name = ""
+        printer_vid = ""
+        printer_pid = ""
+        if selected_key in self._printer_map:
+            p = self._printer_map[selected_key]
+            printer_name = p.get("name", "")
+            printer_vid = p.get("vid", "")
+            printer_pid = p.get("pid", "")
+        settings["printer_name"] = printer_name
+        settings["printer_vid"] = "" if platform.system() == "Windows" else printer_vid
+        settings["printer_pid"] = "" if platform.system() == "Windows" else printer_pid
+        return settings
+
     def _try_print_text(self, text):
-        if not self.printer_manager.has_valid_printer():
+        runtime_settings = self._get_runtime_printer_settings()
+        runtime_printer = PrinterManager(runtime_settings)
+        if not runtime_printer.has_valid_printer():
             self._show_snack("No hay impresora válida configurada.", error=True)
             return
-        if platform.system() == "Linux" and self.settings.get("require_sudo_print"):
-            self._prompt_sudo_and_print(text)
+        if platform.system() == "Linux" and runtime_settings.get("require_sudo_print"):
+            self._prompt_sudo_and_print(text, runtime_printer)
             return
         self._show_snack("Enviando a impresora...")
-        self.page.run_thread(self._print_worker, text, None)
+        self.page.run_thread(self._print_worker, text, runtime_printer, None)
 
-    def _print_worker(self, text, sudo_password=None):
-        ok, msg = self.printer_manager.print_text(text, sudo_password=sudo_password)
+    def _print_worker(self, text, printer_manager, sudo_password=None):
+        ok, msg = printer_manager.print_text(text, sudo_password=sudo_password)
         self._log_print_result(ok, msg)
         self.page.run_task(self._after_print, ok, msg)
 
@@ -835,7 +897,7 @@ class SettingsView(ft.Container):
         else:
             self._show_snack(msg or "No se pudo imprimir la prueba.", error=True)
 
-    def _prompt_sudo_and_print(self, text):
+    def _prompt_sudo_and_print(self, text, printer_manager):
         password_field = ft.TextField(
             label="Contraseña sudo",
             password=True,
@@ -862,7 +924,7 @@ class SettingsView(ft.Container):
                 ),
                 ft.FilledButton(
                     content=ft.Text("Imprimir"),
-                    on_click=lambda e: self._do_sudo_print(dialog, text, password_field.value),
+                    on_click=lambda e: self._do_sudo_print(dialog, text, printer_manager, password_field.value),
                     style=ft.ButtonStyle(
                         bgcolor=ft.Colors.PRIMARY,
                         color=ft.Colors.WHITE,
@@ -876,10 +938,10 @@ class SettingsView(ft.Container):
         dialog.open = True
         self.page.update()
 
-    def _do_sudo_print(self, dialog, text, password):
+    def _do_sudo_print(self, dialog, text, printer_manager, password):
         self._close_dialog(dialog)
         self._show_snack("Enviando a impresora...")
-        self.page.run_thread(self._print_worker, text, password)
+        self.page.run_thread(self._print_worker, text, printer_manager, password)
 
     def _log_print_result(self, ok, msg):
         ts = datetime.now().isoformat(timespec="seconds")

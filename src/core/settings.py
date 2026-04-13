@@ -17,7 +17,8 @@ class SettingsManager:
             "printer_name": "",
             "printer_vid": "",
             "printer_pid": "",
-            "require_sudo_print": False
+            "require_sudo_print": False,
+            "ticket_paper_mm": 58,
         }
 
     def load_settings(self):
