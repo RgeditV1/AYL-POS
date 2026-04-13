@@ -1,4 +1,3 @@
-import csv
 import os
 import platform
 import tempfile
@@ -10,7 +9,6 @@ from src.core.sales import SalesManager
 from src.core.settings import SettingsManager
 from src.core.printer import PrinterManager
 from src.core.ticket import build_report_text
-from src.core.config import SALES_CSV, CASH_FLOW_CSV
 
 
 class ReportsView(ft.Container):
@@ -400,7 +398,7 @@ class ReportsView(ft.Container):
     # ──────────────────────────────────────────────
 
     def _load_data(self):
-        """Read CSVs and populate tables."""
+        """Read DB and populate tables."""
         s = self.start_date
         e = self.end_date
 
@@ -414,28 +412,20 @@ class ReportsView(ft.Container):
         self.sales_rows.controls.clear()
         sales_data = []  # for export
         total_ventas_val = 0.0
-
-        try:
-            with open(SALES_CSV, "r", encoding="utf-8") as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    row_date = datetime.fromisoformat(row["fecha_hora"]).date()
-                    if s <= row_date <= e:
-                        row_time = datetime.fromisoformat(row["fecha_hora"]).strftime("%Y-%m-%d %H:%M")
-                        total_val = float(row["total"])
-                        total_ventas_val += total_val
-                        sales_data.append((row_time, row["nombre"], row["cantidad"], total_val))
-                        self.sales_rows.controls.append(
-                            self._table_row([
-                                ft.Text(row_time, size=12, width=140, color=ft.Colors.SECONDARY),
-                                ft.Text(row["nombre"], size=12, expand=True, overflow=ft.TextOverflow.ELLIPSIS),
-                                ft.Text(row["cantidad"], size=12, width=60, text_align=ft.TextAlign.CENTER),
-                                ft.Text(f"${total_val:.2f}", size=12, width=80, text_align=ft.TextAlign.RIGHT,
-                                        weight=ft.FontWeight.W_500),
-                            ])
-                        )
-        except FileNotFoundError:
-            pass
+        for row in self.sales_manager.get_sales_items_for_range(s, e):
+            row_time = datetime.fromisoformat(row["fecha_hora"]).strftime("%Y-%m-%d %H:%M")
+            total_val = float(row["subtotal"])
+            total_ventas_val += total_val
+            sales_data.append((row_time, row["nombre"], row["cantidad"], total_val))
+            self.sales_rows.controls.append(
+                self._table_row([
+                    ft.Text(row_time, size=12, width=140, color=ft.Colors.SECONDARY),
+                    ft.Text(row["nombre"], size=12, expand=True, overflow=ft.TextOverflow.ELLIPSIS),
+                    ft.Text(str(row["cantidad"]), size=12, width=60, text_align=ft.TextAlign.CENTER),
+                    ft.Text(f"${total_val:.2f}", size=12, width=80, text_align=ft.TextAlign.RIGHT,
+                            weight=ft.FontWeight.W_500),
+                ])
+            )
 
         if not self.sales_rows.controls:
             self.sales_rows.controls.append(
@@ -452,37 +442,29 @@ class ReportsView(ft.Container):
         cash_data = []  # for export
         total_entradas_val = 0.0
         total_salidas_val = 0.0
-
-        try:
-            with open(CASH_FLOW_CSV, "r", encoding="utf-8") as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    tipo = row["tipo"]
-                    if tipo not in ("Entrada", "Salida"):
-                        continue
-                    row_date = datetime.fromisoformat(row["fecha_hora"]).date()
-                    if s <= row_date <= e:
-                        row_time = datetime.fromisoformat(row["fecha_hora"]).strftime("%Y-%m-%d %H:%M")
-                        amount = float(row["monto"])
-                        is_entrada = tipo == "Entrada"
-                        if is_entrada:
-                            total_entradas_val += amount
-                        else:
-                            total_salidas_val += amount
-                        cash_data.append((row_time, tipo, amount, row["concepto"]))
-                        self.cash_rows.controls.append(
-                            self._table_row([
-                                ft.Text(row_time, size=12, width=140, color=ft.Colors.SECONDARY),
-                                ft.Text(tipo, size=12, width=70,
-                                        color=ft.Colors.GREEN if is_entrada else ft.Colors.RED,
-                                        weight=ft.FontWeight.W_500),
-                                ft.Text(f"${amount:.2f}", size=12, width=80, text_align=ft.TextAlign.RIGHT),
-                                ft.Text(row["concepto"], size=12, expand=True, overflow=ft.TextOverflow.ELLIPSIS,
-                                        color=ft.Colors.SECONDARY),
-                            ])
-                        )
-        except FileNotFoundError:
-            pass
+        for row in self.sales_manager.get_cash_flow_for_range(s, e):
+            tipo = row.get("tipo")
+            if tipo not in ("Entrada", "Salida"):
+                continue
+            row_time = datetime.fromisoformat(row["fecha_hora"]).strftime("%Y-%m-%d %H:%M")
+            amount = float(row["monto"])
+            is_entrada = tipo == "Entrada"
+            if is_entrada:
+                total_entradas_val += amount
+            else:
+                total_salidas_val += amount
+            cash_data.append((row_time, tipo, amount, row.get("concepto", "")))
+            self.cash_rows.controls.append(
+                self._table_row([
+                    ft.Text(row_time, size=12, width=140, color=ft.Colors.SECONDARY),
+                    ft.Text(tipo, size=12, width=70,
+                            color=ft.Colors.GREEN if is_entrada else ft.Colors.RED,
+                            weight=ft.FontWeight.W_500),
+                    ft.Text(f"${amount:.2f}", size=12, width=80, text_align=ft.TextAlign.RIGHT),
+                    ft.Text(row.get("concepto", ""), size=12, expand=True, overflow=ft.TextOverflow.ELLIPSIS,
+                            color=ft.Colors.SECONDARY),
+                ])
+            )
 
         if not self.cash_rows.controls:
             self.cash_rows.controls.append(

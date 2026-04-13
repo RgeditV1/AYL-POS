@@ -180,6 +180,54 @@ class SalesManager:
             conn.close()
         return totals
 
+    def get_sales_items_for_range(self, start_date, end_date):
+        """Fetch all sale items for tickets in a date range (active only)."""
+        rows = []
+        conn = self.db.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT t.fecha_hora, i.nombre, i.cantidad, i.subtotal
+                FROM sale_items i
+                JOIN tickets t ON t.ticket_id = i.ticket_id
+                WHERE date(t.fecha_hora) BETWEEN date(?) AND date(?)
+                  AND t.estado = 'activa'
+                ORDER BY t.fecha_hora ASC, i.id ASC
+                """,
+                (start_date.isoformat(), end_date.isoformat()),
+            )
+            for row in cursor.fetchall():
+                rows.append(dict(row))
+        except Exception:
+            pass
+        finally:
+            conn.close()
+        return rows
+
+    def get_cash_flow_for_range(self, start_date, end_date):
+        """Fetch cash flow rows for a date range."""
+        rows = []
+        conn = self.db.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT fecha_hora, tipo, monto, concepto
+                FROM cash_flow
+                WHERE date(fecha_hora) BETWEEN date(?) AND date(?)
+                ORDER BY fecha_hora ASC
+                """,
+                (start_date.isoformat(), end_date.isoformat()),
+            )
+            for row in cursor.fetchall():
+                rows.append(dict(row))
+        except Exception:
+            pass
+        finally:
+            conn.close()
+        return rows
+
     def log_sale(self, items, timestamp=None, sign=1):
         """
         Legacy compatibility: Logs individual items to the old flattened format logic.
