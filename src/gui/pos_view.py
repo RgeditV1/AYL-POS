@@ -1,13 +1,13 @@
 import asyncio
 import json
 import platform
-from datetime import datetime
+from datetime import datetime, date
 import flet as ft
 from src.core.inventory import InventoryManager
 from src.core.sales import SalesManager
 from src.core.settings import SettingsManager
 from src.core.printer import PrinterManager
-from src.core.ticket import build_ticket_text
+from src.core.ticket import build_ticket_text, build_report_text
 
 
 class POSView(ft.Container):
@@ -90,7 +90,7 @@ class POSView(ft.Container):
         # Items in right panel (compact)
         self.order_items_column = ft.Column(
             scroll=ft.ScrollMode.AUTO,
-            height=100,
+            height=75,
             spacing=2,
         )
 
@@ -133,7 +133,6 @@ class POSView(ft.Container):
         if self.role == "admin":
             for label, handler in [
                 ("Productos", self._open_products),
-                ("Reportes", self._open_reports),
                 ("Ajustes", self._open_settings),
             ]:
                 nav_buttons.append(
@@ -142,6 +141,14 @@ class POSView(ft.Container):
                         on_click=handler,
                     )
                 )
+
+        nav_buttons.append(
+            ft.TextButton(
+                content=ft.Text("Reportes", size=13),
+                on_click=self._open_reports,
+            )
+        )
+
 
         nav_buttons.append(
             ft.TextButton(
@@ -287,50 +294,79 @@ class POSView(ft.Container):
             ),
         )
 
-        cash_in_button = ft.TextButton(
+        cash_in_button = ft.OutlinedButton(
             content=ft.Text("+ Entrada", size=12, color=ft.Colors.GREEN),
             on_click=lambda e: self._open_cash_flow("Entrada"),
+            style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
             expand=True,
         )
-        cash_out_button = ft.TextButton(
+        cash_out_button = ft.OutlinedButton(
             content=ft.Text("- Salida", size=12, color=ft.Colors.RED),
             on_click=lambda e: self._open_cash_flow("Salida"),
+            style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
+            expand=True,
+        )
+
+        cash_close_button = ft.FilledButton(
+            content=ft.Row(
+                [ft.Icon(ft.Icons.LOCK_CLOCK, size=18), ft.Text("CIERRE DE CAJA", size=14, weight=ft.FontWeight.BOLD)],
+                spacing=8, alignment=ft.MainAxisAlignment.CENTER
+            ),
+            height=50,
+            on_click=self._open_cash_close_dialog,
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=10),
+                bgcolor=ft.Colors.ORANGE_800,
+                color=ft.Colors.WHITE,
+            ),
             expand=True,
         )
 
         return ft.Container(
             content=ft.Column(
                 [
-                    ft.Text("Tickets:", size=13, color=ft.Colors.SECONDARY),
-                    self.ticket_tabs_row,
-                    ft.Divider(),
-                    ft.Text("Orden actual:", size=13, color=ft.Colors.SECONDARY),
-                    self.order_items_column,
-                    ft.Divider(),
-                    ft.Row(
+                    ft.Column(
                         [
-                            ft.Text("TOTAL", size=20, weight=ft.FontWeight.BOLD),
-                            self.total_text,
+                            ft.Text("Tickets:", size=13, color=ft.Colors.SECONDARY),
+                            self.ticket_tabs_row,
+                            ft.Divider(),
+                            ft.Text("Orden actual:", size=13, color=ft.Colors.SECONDARY),
+                            self.order_items_column,
+                            ft.Divider(),
+                            ft.Row(
+                                [
+                                    ft.Text("TOTAL", size=20, weight=ft.FontWeight.BOLD),
+                                    self.total_text,
+                                ],
+                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                            ),
+                            ft.Divider(height=8, color=ft.Colors.TRANSPARENT),
+                            ft.Row([clear_button, reprint_button], spacing=8),
+                            ft.Row([reprint_last_button, cancel_sale_button], spacing=8),
+                            ft.Row([free_item_button], spacing=8),
+                            ft.Divider(),
+                            ft.Row(
+                                [cash_in_button, cash_out_button],
+                                spacing=8,
+                            ),
                         ],
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                    ),
-                    ft.Divider(height=8, color=ft.Colors.TRANSPARENT),
-                    pay_button,
-                    ft.Divider(height=2, color=ft.Colors.TRANSPARENT),
-                    ft.Row([clear_button, reprint_button], spacing=8),
-                    ft.Divider(height=2, color=ft.Colors.TRANSPARENT),
-                    ft.Row([reprint_last_button, cancel_sale_button], spacing=8),
-                    ft.Divider(height=2, color=ft.Colors.TRANSPARENT),
-                    ft.Row([free_item_button], spacing=8),
-                    ft.Divider(),
-                    ft.Row(
-                        [cash_in_button, cash_out_button],
                         spacing=8,
+                        horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+                        expand=True,
+                    ),
+                    ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
+                    ft.Column(
+                        [
+                            pay_button,
+                            ft.Divider(height=4, color=ft.Colors.TRANSPARENT),
+                            cash_close_button,
+                        ],
+                        spacing=0,
+                        horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
                     ),
                 ],
-                spacing=8,
-                horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+                spacing=0,
             ),
             width=340,
             padding=20,
@@ -874,6 +910,85 @@ class POSView(ft.Container):
             self._show_snack(f"{tipo} de ${amount:.2f} registrada.")
         except ValueError:
             self._show_snack("Monto inválido.", error=True)
+
+    # ──────────────────────────────────────────────
+    # Cash Close Dialog
+    # ──────────────────────────────────────────────
+
+    def _open_cash_close_dialog(self, e=None):
+        today = date.today()
+        totals = self.sales_manager.get_totals_for_range(today, today)
+
+        amount_field = ft.TextField(
+            label="Monto de salida",
+            prefix=ft.Text("$"),
+            keyboard_type=ft.KeyboardType.NUMBER,
+            autofocus=True,
+            border_radius=8,
+        )
+
+        summary = ft.Column(
+            [
+                ft.Text(f"Ventas: ${totals.get('sales', 0.0):.2f}", size=12),
+                ft.Text(f"Entradas: ${totals.get('entries', 0.0):.2f}", size=12),
+                ft.Text(f"Salidas: ${totals.get('exits', 0.0):.2f}", size=12),
+                ft.Text(f"Neto: ${totals.get('net', 0.0):.2f}", size=12, weight=ft.FontWeight.W_500),
+            ],
+            spacing=2,
+        )
+
+        dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Cierre de Caja", size=18, weight=ft.FontWeight.BOLD),
+            content=ft.Column(
+                [summary, ft.Divider(height=6, color=ft.Colors.TRANSPARENT), amount_field],
+                tight=True,
+                spacing=10,
+                width=320,
+            ),
+            actions=[
+                ft.TextButton(
+                    content=ft.Text("Cancelar"),
+                    on_click=lambda ev: self._close_dialog(dialog),
+                ),
+                ft.FilledButton(
+                    content=ft.Text("Cerrar caja"),
+                    on_click=lambda ev: self._close_cash_register(dialog, amount_field.value),
+                    style=ft.ButtonStyle(
+                        bgcolor=ft.Colors.RED,
+                        color=ft.Colors.WHITE,
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                    ),
+                ),
+            ],
+        )
+
+        self.page.overlay.append(dialog)
+        dialog.open = True
+        self.page.update()
+
+    def _close_cash_register(self, dialog, amount_str):
+        try:
+            amount = float(amount_str or 0)
+            if amount <= 0:
+                raise ValueError()
+        except Exception:
+            self._show_snack("Monto inválido. Debe ser mayor a cero.", error=True)
+            return
+
+        self.sales_manager.log_cash_flow(
+            "Salida", amount, f"Cierre de caja - {self.username}"
+        )
+        self._close_dialog(dialog)
+
+        today = date.today()
+        totals = self.sales_manager.get_totals_for_range(today, today)
+        report_text = build_report_text(self.settings, today, today, totals)
+        self._try_print_text(
+            report_text,
+            on_success="Cierre de caja impreso.",
+            on_skip="Cierre de caja registrado (sin impresión).",
+        )
 
     # ──────────────────────────────────────────────
     # Helpers

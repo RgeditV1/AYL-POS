@@ -88,6 +88,7 @@ from src.gui.reports_view import ReportsView
 from src.gui.inventory_view import InventoryView
 from src.gui.settings_view import SettingsView
 from src.gui.theme import ThemeManager
+from src.core.sales import SalesManager
 
 
 class AYL_Application:
@@ -99,6 +100,7 @@ class AYL_Application:
         self.page.title = "Punto de Venta A&L"
         self.page.theme = ThemeManager.get_dark_theme()
         self.page.theme_mode = ft.ThemeMode.DARK
+        self.sales_manager = SalesManager()
 
     async def initialize(self):
         """Async startup."""
@@ -141,6 +143,76 @@ class AYL_Application:
         """Transition from login → POS."""
         self._username = username
         self._role = role
+        self._prompt_opening_amount(username, role)
+
+    def _prompt_opening_amount(self, username: str, role: str):
+        amount_field = ft.TextField(
+            label="Monto de apertura",
+            prefix=ft.Text("$"),
+            keyboard_type=ft.KeyboardType.NUMBER,
+            autofocus=True,
+            border_radius=8,
+        )
+
+        dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Apertura de Caja", size=18, weight=ft.FontWeight.BOLD),
+            content=ft.Column(
+                [
+                    ft.Text("Ingresa el monto inicial en caja.", size=12),
+                    amount_field,
+                ],
+                tight=True,
+                spacing=10,
+                width=320,
+            ),
+            actions=[
+                ft.TextButton(
+                    content=ft.Text("Cancelar"),
+                    on_click=lambda e: self._cancel_opening_amount(dialog),
+                ),
+                ft.FilledButton(
+                    content=ft.Text("Iniciar"),
+                    on_click=lambda e: self._confirm_opening_amount(
+                        dialog, username, role, amount_field.value
+                    ),
+                    style=ft.ButtonStyle(
+                        bgcolor=ft.Colors.PRIMARY,
+                        color=ft.Colors.WHITE,
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                    ),
+                ),
+            ],
+        )
+        self.page.overlay.append(dialog)
+        dialog.open = True
+        self.page.update()
+
+    def _cancel_opening_amount(self, dialog):
+        dialog.open = False
+        self.page.update()
+        self._show_login()
+
+    def _confirm_opening_amount(self, dialog, username: str, role: str, amount_str: str):
+        try:
+            amount = float(amount_str or 0)
+            if amount <= 0:
+                raise ValueError()
+        except Exception:
+            snack = ft.SnackBar(
+                content=ft.Text("Monto inválido. Debe ser mayor a cero."),
+                bgcolor=ft.Colors.RED,
+            )
+            self.page.overlay.append(snack)
+            snack.open = True
+            self.page.update()
+            return
+
+        self.sales_manager.log_cash_flow(
+            "Entrada", amount, f"Apertura de caja - {username}"
+        )
+        dialog.open = False
+        self.page.update()
         self._configure_pos_window()
         self._load_pos_view(username, role)
 
@@ -150,7 +222,7 @@ class AYL_Application:
             username=username,
             role=role,
             on_logout=self._handle_logout,
-            on_open_reports=self._show_reports if role == "admin" else None,
+            on_open_reports=self._show_reports,
             on_open_inventory=self._show_inventory if role == "admin" else None,
             on_open_settings=self._show_settings if role == "admin" else None,
             on_open_about=self._show_about,

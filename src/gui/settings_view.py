@@ -44,15 +44,15 @@ class SettingsView(ft.Container):
 
     def _init_controls(self):
         # Store settings fields
-        self.f_business = ft.TextField(label="Nombre del Negocio", border_radius=8, expand=True)
-        self.f_address = ft.TextField(label="Dirección", border_radius=8, expand=True)
+        self.f_business = ft.TextField(label="Nombre del Negocio", border_radius=8, width=450)
+        self.f_address = ft.TextField(label="Dirección", border_radius=8, width=450)
+        self.f_cashier = ft.TextField(label="Nombre del Cajero", border_radius=8, width=450)
         self.f_phone = ft.TextField(
             label="Teléfono",
             border_radius=8,
-            expand=True,
+            width=450,
             keyboard_type=ft.KeyboardType.PHONE,
         )
-        self.f_cashier = ft.TextField(label="Nombre del Cajero", border_radius=8, expand=True)
 
         # Users table
         self.users_column = ft.Column(scroll=ft.ScrollMode.AUTO, expand=True, spacing=4)
@@ -243,28 +243,34 @@ class SettingsView(ft.Container):
             height=48,
         )
 
-        return ft.Container(
-            content=ft.Column(
-                [
-                    ft.Text("Información del Negocio", size=16, weight=ft.FontWeight.BOLD),
-                    ft.Divider(height=4, color=ft.Colors.TRANSPARENT),
-                    ft.Row([self.f_business], spacing=10),
-                    ft.Row([self.f_address], spacing=10),
-                    ft.Row([self.f_phone, self.f_cashier], spacing=10),
-                    ft.Divider(height=12, color=ft.Colors.TRANSPARENT),
-                    ft.Text("Impresora", size=16, weight=ft.FontWeight.BOLD),
-                    ft.Divider(height=4, color=ft.Colors.TRANSPARENT),
-                    ft.Row([self.f_printer, self.refresh_printers_btn], spacing=10),
-                    ft.Row([self.print_test_btn], spacing=10),
-                    self.require_sudo_checkbox,
-                    ft.Divider(height=6, color=ft.Colors.TRANSPARENT),
-                    ft.Text("Tamaño de papel", size=14, weight=ft.FontWeight.BOLD),
-                    ft.Row([self.paper_58_btn, self.paper_80_btn], spacing=8),
-                    ft.Divider(height=8, color=ft.Colors.TRANSPARENT),
-                    ft.Row([save_btn]),
-                ],
-                spacing=14,
-            ),
+        return ft.Column(
+            [
+                ft.Column(
+                    [
+                        ft.Text("Información del Negocio", size=16, weight=ft.FontWeight.BOLD),
+                        ft.Divider(height=4, color=ft.Colors.TRANSPARENT),
+                        ft.Row([self.f_business], spacing=10),
+                        ft.Row([self.f_address], spacing=10),
+                        ft.Row([self.f_phone], spacing=10),
+                        ft.Row([self.f_cashier], spacing=10),
+                        ft.Divider(height=12, color=ft.Colors.TRANSPARENT),
+                        ft.Text("Impresora", size=16, weight=ft.FontWeight.BOLD),
+                        ft.Divider(height=4, color=ft.Colors.TRANSPARENT),
+                        ft.Row([self.f_printer, self.refresh_printers_btn], width=450, spacing=10),
+                        ft.Row([self.print_test_btn], spacing=10),
+                        self.require_sudo_checkbox,
+                        ft.Divider(height=6, color=ft.Colors.TRANSPARENT),
+                        ft.Text("Tamaño de papel", size=14, weight=ft.FontWeight.BOLD),
+                        ft.Row([self.paper_58_btn, self.paper_80_btn], spacing=8),
+                    ],
+                    spacing=14,
+                    scroll=ft.ScrollMode.ALWAYS,
+                    expand=True,
+                ),
+                ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
+                ft.Row([save_btn]),
+            ],
+            spacing=0,
         )
 
     def _load_settings(self):
