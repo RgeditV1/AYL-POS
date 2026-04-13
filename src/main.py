@@ -8,6 +8,21 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+def _configure_ssl_certs():
+    """Ensure SSL certs resolve correctly on Windows bundled builds."""
+    if os.environ.get("SSL_CERT_FILE"):
+        return
+    try:
+        import certifi
+    except Exception:
+        return
+    cert_path = certifi.where()
+    os.environ["SSL_CERT_FILE"] = cert_path
+    os.environ.setdefault("REQUESTS_CA_BUNDLE", cert_path)
+
+
+_configure_ssl_certs()
+
 import flet as ft
 from src.gui.login import LoginSystem, LOBBY_WIDTH, LOBBY_HEIGHT
 from src.gui.pos_view import POSView

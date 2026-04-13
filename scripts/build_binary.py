@@ -48,6 +48,7 @@ def main():
         "--include-data-files=src/logo.ico=src/logo.ico",
         "--include-package-data=escpos",
         "--include-package-data=flet",
+        "--include-package-data=certifi",
         "src/main.py"
     ]
 
