@@ -2,6 +2,36 @@ import os
 import subprocess
 import sys
 import platform
+import urllib.request
+import ssl
+
+def ensure_flet_client_downloaded(es_windows: bool):
+    if not es_windows:
+        return
+    try:
+        import flet_desktop
+        import certifi
+    except Exception:
+        print("[!] No se pudo importar flet_desktop/certifi para descargar el cliente.")
+        return
+
+    file_name = "flet-windows.zip"
+    version = flet_desktop.version.version
+    default_url = f"https://github.com/flet-dev/flet/releases/download/v{version}/{file_name}"
+    flet_url = os.environ.get("FLET_CLIENT_URL", default_url)
+
+    target_dir = os.path.join(os.getcwd(), "flet_client")
+    os.makedirs(target_dir, exist_ok=True)
+    target_path = os.path.join(target_dir, file_name)
+    if os.path.exists(target_path):
+        print(f"[+] Cliente Flet ya existe: {target_path}")
+        return
+
+    print(f"[+] Descargando cliente Flet v{version} desde {flet_url}")
+    ctx = ssl.create_default_context(cafile=certifi.where())
+    with urllib.request.urlopen(flet_url, context=ctx) as r, open(target_path, "wb") as f:
+        f.write(r.read())
+    print(f"[+] Cliente Flet guardado en: {target_path}")
 
 def main():
     # 1. Identificar el sistema operativo actual
@@ -35,6 +65,9 @@ def main():
     print(f"[+] Operando en: {sistema}")
     print(f"[+] Intérprete de build: {py}")
 
+    # 3.5 Descarga el cliente Flet para incluirlo en el bundle (Windows)
+    ensure_flet_client_downloaded(es_windows)
+
     # 4. Configuración Base del Comando
     exe_name = "AYL-POS-debug" if "--enable-console" in sys.argv else "AYL-POS"
     cmd = [
@@ -51,6 +84,11 @@ def main():
         "--include-package-data=certifi",
         "src/main.py"
     ]
+
+    # Incluir cliente de Flet predescargado si existe
+    flet_client_dir = os.path.join(os.getcwd(), "flet_client")
+    if os.path.isdir(flet_client_dir):
+        cmd.append("--include-data-dir=flet_client=flet_client")
 
     # 5. Añadir Flags Específicos por Sistema Operativo
     if es_windows:

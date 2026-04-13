@@ -2,11 +2,18 @@ import sys
 import os
 import asyncio
 import platform
+import shutil
+import tempfile
+import zipfile
+import tarfile
+from pathlib import Path
 
 # Add project root to sys.path to allow imports from src
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
+
+from src.utils.resources import get_resource_path
 
 def _configure_ssl_certs():
     """Ensure SSL certs resolve correctly on Windows bundled builds."""
@@ -21,7 +28,57 @@ def _configure_ssl_certs():
     os.environ.setdefault("REQUESTS_CA_BUNDLE", cert_path)
 
 
+def _maybe_preload_flet_client():
+    """Preload Flet desktop client from bundled archive to avoid internet."""
+    try:
+        import flet_desktop
+        from flet.utils import is_windows, is_macos, is_linux
+    except Exception:
+        return
+
+    if is_windows():
+        artifact = "flet-windows.zip"
+    elif is_macos():
+        artifact = "flet-macos.tar.gz"
+    else:
+        return
+
+    candidates = [
+        get_resource_path("flet_client", artifact),
+        get_resource_path("src", "flet_client", artifact),
+    ]
+    archive_path = next((p for p in candidates if os.path.exists(p)), None)
+    if not archive_path:
+        return
+
+    flavor = os.environ.get("FLET_DESKTOP_FLAVOR", "").strip().lower()
+    if flavor not in ("full", "light"):
+        flavor = "full" if not is_linux() else "light"
+
+    cache_dir = Path.home().joinpath(
+        ".flet", "client", f"flet-desktop-{flavor}-{flet_desktop.version.version}"
+    )
+    if cache_dir.exists():
+        return
+
+    temp_extract = cache_dir.parent / f"{cache_dir.name}.preload"
+    shutil.rmtree(temp_extract, ignore_errors=True)
+    temp_extract.mkdir(parents=True, exist_ok=True)
+
+    try:
+        if artifact.endswith(".zip"):
+            with zipfile.ZipFile(archive_path, "r") as zf:
+                zf.extractall(str(temp_extract))
+        else:
+            with tarfile.open(archive_path, "r:gz") as tar_arch:
+                tar_arch.extractall(str(temp_extract))
+        temp_extract.rename(cache_dir)
+    except Exception:
+        shutil.rmtree(temp_extract, ignore_errors=True)
+
+
 _configure_ssl_certs()
+_maybe_preload_flet_client()
 
 import flet as ft
 from src.gui.login import LoginSystem, LOBBY_WIDTH, LOBBY_HEIGHT
@@ -31,7 +88,6 @@ from src.gui.reports_view import ReportsView
 from src.gui.inventory_view import InventoryView
 from src.gui.settings_view import SettingsView
 from src.gui.theme import ThemeManager
-from src.utils.resources import get_resource_path
 
 
 class AYL_Application:
