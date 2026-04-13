@@ -90,7 +90,7 @@ class POSView(ft.Container):
         # Items in right panel (compact)
         self.order_items_column = ft.Column(
             scroll=ft.ScrollMode.AUTO,
-            height=170,
+            height=100,
             spacing=2,
         )
 
@@ -276,15 +276,6 @@ class POSView(ft.Container):
             ),
         )
 
-        cancel_last_button = ft.OutlinedButton(
-            content=ft.Text("Cancelar última", size=13),
-            expand=True,
-            on_click=lambda e: self._cancel_last_ticket(),
-            style=ft.ButtonStyle(
-                shape=ft.RoundedRectangleBorder(radius=8),
-                padding=ft.Padding(left=12, top=8, right=12, bottom=8),
-            ),
-        )
 
         free_item_button = ft.OutlinedButton(
             content=ft.Text("Artículo libre", size=13),
@@ -299,10 +290,12 @@ class POSView(ft.Container):
         cash_in_button = ft.TextButton(
             content=ft.Text("+ Entrada", size=12, color=ft.Colors.GREEN),
             on_click=lambda e: self._open_cash_flow("Entrada"),
+            expand=True,
         )
         cash_out_button = ft.TextButton(
             content=ft.Text("- Salida", size=12, color=ft.Colors.RED),
             on_click=lambda e: self._open_cash_flow("Salida"),
+            expand=True,
         )
 
         return ft.Container(
@@ -327,13 +320,13 @@ class POSView(ft.Container):
                     ft.Divider(height=2, color=ft.Colors.TRANSPARENT),
                     ft.Row([clear_button, reprint_button], spacing=8),
                     ft.Divider(height=2, color=ft.Colors.TRANSPARENT),
-                    ft.Row([reprint_last_button, cancel_last_button], spacing=8),
+                    ft.Row([reprint_last_button, cancel_sale_button], spacing=8),
                     ft.Divider(height=2, color=ft.Colors.TRANSPARENT),
-                    ft.Row([cancel_sale_button, free_item_button], spacing=8),
+                    ft.Row([free_item_button], spacing=8),
                     ft.Divider(),
                     ft.Row(
                         [cash_in_button, cash_out_button],
-                        alignment=ft.MainAxisAlignment.SPACE_EVENLY,
+                        spacing=8,
                     ),
                 ],
                 spacing=8,
@@ -1131,32 +1124,6 @@ class POSView(ft.Container):
         self._reload_products()
         self._show_snack("Venta cancelada y revertida.", error=False)
 
-    def _cancel_last_ticket(self):
-        if not self.last_ticket_id:
-            self._show_snack("No hay un último ticket registrado.", error=True)
-            return
-        ok, result = self.sales_manager.cancel_ticket(
-            self.last_ticket_id, allow_any_date=True
-        )
-        if not ok:
-            self._show_snack(result, error=True)
-            return
-        try:
-            items = json.loads(result.get("items_json") or "{}")
-        except Exception:
-            items = {}
-
-        adjustments = {code: -item.get("qty", 0) for code, item in items.items()}
-        ok_stock, msg_stock = self.inventory_manager.update_stock(adjustments)
-        if not ok_stock:
-            self._show_snack(msg_stock, error=True)
-            return
-        ok_sale, msg_sale = self.sales_manager.log_sale(items, sign=-1)
-        if not ok_sale:
-            self._show_snack(msg_sale, error=True)
-            return
-        self._reload_products()
-        self._show_snack("Última venta cancelada y revertida.", error=False)
     def _open_free_item_dialog(self):
         name_field = ft.TextField(label="Nombre del artículo", border_radius=8)
         price_field = ft.TextField(
