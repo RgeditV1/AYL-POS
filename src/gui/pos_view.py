@@ -937,6 +937,9 @@ class POSView(ft.Container):
             spacing=2,
         )
 
+        # esto es una opcion quality of life para el usuario.
+        fprint = ft.Checkbox(label="Imprimir", value=False)
+
         dialog = ft.AlertDialog(
             modal=True,
             title=ft.Text("Cierre de Caja", size=18, weight=ft.FontWeight.BOLD),
@@ -947,13 +950,14 @@ class POSView(ft.Container):
                 width=320,
             ),
             actions=[
+                fprint,
                 ft.TextButton(
                     content=ft.Text("Cancelar"),
                     on_click=lambda ev: self._close_dialog(dialog),
                 ),
                 ft.FilledButton(
                     content=ft.Text("Cerrar caja"),
-                    on_click=lambda ev: self._close_cash_register(dialog, amount_field.value),
+                    on_click=lambda ev: self._close_cash_register(dialog, amount_field.value, fprint.value),
                     style=ft.ButtonStyle(
                         bgcolor=ft.Colors.RED,
                         color=ft.Colors.WHITE,
@@ -967,7 +971,7 @@ class POSView(ft.Container):
         dialog.open = True
         self.page.update()
 
-    def _close_cash_register(self, dialog, amount_str):
+    def _close_cash_register(self, dialog, amount_str, fprint: bool):
         try:
             amount = float(amount_str or 0)
             if amount <= 0:
@@ -984,11 +988,15 @@ class POSView(ft.Container):
         today = date.today()
         totals = self.sales_manager.get_totals_for_range(today, today)
         report_text = build_report_text(self.settings, today, today, totals)
-        self._try_print_text(
-            report_text,
-            on_success="Cierre de caja impreso.",
-            on_skip="Cierre de caja registrado (sin impresión).",
-        )
+        
+        if not fprint:
+            self._show_snack("Reporte Generado")
+        else:
+            self._try_print_text(
+                report_text,
+                on_success="Reporte impreso.",
+                on_skip="no se pudo imprimir, Reporte Generado (sin impresión).",
+            )
 
     # ──────────────────────────────────────────────
     # Helpers
