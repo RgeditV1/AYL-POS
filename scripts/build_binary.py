@@ -98,7 +98,7 @@ def main():
             "--product-name=AYL-POS",
             "--file-description=Sistema de Punto de Venta",
             "--product-version=1.0.4",
-            "--file-version=2026.04.13.0",
+            "--file-version=2026.04.22.0",
             "--copyright=Copyright (c) 2026 AYL-Software",
             "--windows-icon-from-ico=src/logo.ico",
             "--include-module=win32print",
