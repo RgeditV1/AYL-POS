@@ -28,7 +28,9 @@ jobs:
         if: matrix.distro == 'archlinux'
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm python python-pip git base-devel patchelf curl
+          # No instalar patchelf desde Arch: la versión 0.18.0 es bloqueada por Nuitka.
+          # Nuitka descargará una versión compatible con --assume-yes-for-downloads.
+          pacman -S --noconfirm python python-pip git base-devel curl
 
       - name: Install System Dependencies (Ubuntu)
         if: matrix.distro == 'ubuntu'

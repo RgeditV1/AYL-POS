@@ -5,6 +5,25 @@ import platform
 import urllib.request
 import ssl
 
+def warn_for_known_bad_patchelf(es_linux: bool):
+    if not es_linux:
+        return
+    try:
+        result = subprocess.run(
+            ["patchelf", "--version"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        version_out = (result.stdout or result.stderr or "").strip()
+    except Exception:
+        return
+
+    if "0.18.0" in version_out:
+        print("[ERROR] Detectado patchelf 0.18.0, versión incompatible con Nuitka.")
+        print("[ERROR] Solución: downgrade/upgrade de patchelf o desinstalarlo para que Nuitka descargue uno compatible.")
+        sys.exit(1)
+
 def ensure_flet_client_downloaded(es_windows: bool):
     if not es_windows:
         return
@@ -64,6 +83,7 @@ def main():
     py = venv_python if os.path.exists(venv_python) else sys.executable
     print(f"[+] Operando en: {sistema}")
     print(f"[+] Intérprete de build: {py}")
+    warn_for_known_bad_patchelf(es_linux)
 
     # 3.5 Descarga el cliente Flet para incluirlo en el bundle (Windows)
     ensure_flet_client_downloaded(es_windows)
